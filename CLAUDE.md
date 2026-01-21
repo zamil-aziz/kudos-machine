@@ -14,11 +14,13 @@ Based on testing, here's what we learned about Strava's rate limits:
 
 ### Test Results
 
-| Run | Kudos Given | Result |
-|-----|-------------|--------|
-| 1st run | 78 | Connection closed by Strava |
-| After 10 min | 137 | 3 consecutive rejections (rate limited) |
-| **Total** | ~215 | Likely hit 24hr ban |
+| Date | Run | Kudos | Result |
+|------|-----|-------|--------|
+| Jan 20 | #1 | 78 | Connection closed by Strava |
+| Jan 20 | #2 (after 10 min) | 137 | 3 consecutive rejections |
+| Jan 21 | #3 (stale bug) | 26 | Killed manually - 50% lost to stale elements |
+| Jan 21 | #4 (stale fix) | 99 | 3 consecutive rejections |
+| **Total** | | ~340 | |
 
 ### Two Types of Blocks
 
@@ -34,7 +36,7 @@ Based on testing, here's what we learned about Strava's rate limits:
 
 ### Safe Operating Guidelines
 
-- **Default limit:** 100 kudos per run
+- **Default limit:** None (runs until rate limited)
 - **Frequency:** Once or twice per day
 - **Between runs:** Wait 10-15 minutes minimum
 - **Daily max:** Stay under ~200 to avoid 24hr ban
@@ -48,10 +50,10 @@ Based on testing, here's what we learned about Strava's rate limits:
 ## Running the Script
 
 ```bash
-# Standard run (100 kudos max)
+# Standard run (runs until rate limited)
 STRAVA_SESSION="your_cookie" bun start
 
-# Custom limit
+# With a limit
 STRAVA_SESSION="your_cookie" MAX_KUDOS_PER_RUN=50 bun start
 
 # Dry run (test without giving kudos)

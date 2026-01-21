@@ -20,7 +20,7 @@ export function loadConfig(): Config {
     ? clubIdsEnv.split(',').map(id => id.trim()).filter(Boolean)
     : [];
 
-  let maxKudosPerRun = 100; // Default limit to avoid rate limiting
+  let maxKudosPerRun = Infinity; // No limit - script stops when rate limited
   if (process.env.MAX_KUDOS_PER_RUN) {
     const parsed = parseInt(process.env.MAX_KUDOS_PER_RUN, 10);
     if (!isNaN(parsed) && parsed > 0) {
