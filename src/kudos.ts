@@ -148,13 +148,12 @@ export async function giveKudos(
   // Scroll to load more content
   await scrollToLoadContent(page);
 
-  // Find all unfilled kudos buttons
-  // The unfilled kudos icon indicates activities we haven't kudosed yet
-  const kudosButtons = await page.locator('svg[data-testid="unfilled_kudos"]').all();
+  // Get initial count for logging
+  const initialCount = await page.locator('svg[data-testid="unfilled_kudos"]').count();
+  console.log(`Found ${initialCount} activities without kudos`);
 
-  console.log(`Found ${kudosButtons.length} activities without kudos`);
-
-  for (let i = 0; i < kudosButtons.length; i++) {
+  // Process kudos one at a time, re-querying each time to avoid stale elements
+  while (true) {
     if (result.given >= maxKudos) {
       console.log(`Reached max kudos limit (${maxKudos})`);
       break;
@@ -165,69 +164,72 @@ export async function giveKudos(
       break;
     }
 
-    const button = kudosButtons[i];
+    // Re-query for the first unfilled kudos button (fresh reference each time)
+    const buttonLocator = page.locator('svg[data-testid="unfilled_kudos"]').first();
+    const countBefore = await page.locator('svg[data-testid="unfilled_kudos"]').count();
+
+    if (countBefore === 0) {
+      console.log('No more activities to kudos');
+      break;
+    }
 
     try {
       if (dryRun) {
-        console.log(`[DRY RUN] Would give kudos (${i + 1}/${kudosButtons.length})`);
+        console.log(`[DRY RUN] Would give kudos (${result.given + 1}/${initialCount})`);
         result.given++;
-      } else {
-        // Count unfilled buttons before clicking
-        const countBefore = await page.locator('svg[data-testid="unfilled_kudos"]').count();
-
-        // Click the kudos button (parent of the SVG icon)
-        await button.scrollIntoViewIfNeeded();
-        const clickableParent = button.locator('xpath=..');
-
-        // Use JavaScript click
-        await clickableParent.evaluate((el) => (el as HTMLElement).click());
-
-        // Wait for count to decrease (poll up to 1 second)
-        let countAfter = countBefore;
-        const maxWaitMs = 1000;
-        const pollIntervalMs = 150;
-        let waited = 0;
-
-        while (waited < maxWaitMs) {
-          await page.waitForTimeout(pollIntervalMs);
-          waited += pollIntervalMs;
-          countAfter = await page.locator('svg[data-testid="unfilled_kudos"]').count();
-          if (countAfter < countBefore) {
-            break; // Count decreased, kudos worked
-          }
-        }
-
-        // Verify: if count decreased, kudos was given
-        if (countAfter < countBefore) {
-          console.log(`✓ Gave kudos (${i + 1}/${kudosButtons.length})`);
-          result.given++;
-          result.errors = 0; // Reset consecutive errors
-        } else {
-          console.log(`✗ Kudos rejected (${i + 1}/${kudosButtons.length}) - rate limited`);
-          result.errors++;
-
-          if (result.errors >= 3) {
-            console.log('⛔ 3 consecutive rejections - stopping (rate limited)');
-            result.rateLimited = true;
-            break;
-          }
-        }
-
-        // Delay between kudos
-        await page.waitForTimeout(KUDOS_DELAY_MS);
+        // In dry run, we need to break since we're not actually clicking
+        if (result.given >= initialCount) break;
+        continue;
       }
-    } catch (error) {
-      // Element likely became stale after giving kudos - skip it
-      const errorMsg = String(error);
-      if (errorMsg.includes('Timeout') || errorMsg.includes('detached')) {
-        console.log(`  Skipping stale element (${i + 1}/${kudosButtons.length})`);
+
+      // Click the kudos button (parent of the SVG icon)
+      await buttonLocator.scrollIntoViewIfNeeded();
+      const clickableParent = buttonLocator.locator('xpath=..');
+
+      // Use JavaScript click
+      await clickableParent.evaluate((el) => (el as HTMLElement).click());
+
+      // Wait for count to decrease (poll up to 1 second)
+      let countAfter = countBefore;
+      const maxWaitMs = 1000;
+      const pollIntervalMs = 150;
+      let waited = 0;
+
+      while (waited < maxWaitMs) {
+        await page.waitForTimeout(pollIntervalMs);
+        waited += pollIntervalMs;
+        countAfter = await page.locator('svg[data-testid="unfilled_kudos"]').count();
+        if (countAfter < countBefore) {
+          break; // Count decreased, kudos worked
+        }
+      }
+
+      // Verify: if count decreased, kudos was given
+      if (countAfter < countBefore) {
+        console.log(`✓ Gave kudos (${result.given + 1}/${initialCount})`);
+        result.given++;
+        result.errors = 0; // Reset consecutive errors
       } else {
-        console.error(`Error giving kudos: ${error}`);
+        console.log(`✗ Kudos rejected (${result.given + 1}/${initialCount}) - rate limited`);
         result.errors++;
+
         if (result.errors >= 3) {
-          console.log('⛔ 3 consecutive errors - stopping');
+          console.log('⛔ 3 consecutive rejections - stopping (rate limited)');
+          result.rateLimited = true;
           break;
         }
+      }
+
+      // Delay between kudos
+      await page.waitForTimeout(KUDOS_DELAY_MS);
+
+    } catch (error) {
+      const errorMsg = String(error);
+      console.error(`Error giving kudos: ${error}`);
+      result.errors++;
+      if (result.errors >= 3) {
+        console.log('⛔ 3 consecutive errors - stopping');
+        break;
       }
     }
   }
