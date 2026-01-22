@@ -3,8 +3,9 @@ import { launchBrowser, closeBrowser } from './browser';
 import { giveKudosToAllFeeds, fetchUserClubs } from './kudos';
 
 async function main(): Promise<void> {
+  const startTime = new Date().toLocaleString();
   console.log('='.repeat(50));
-  console.log('Strava Auto-Kudos');
+  console.log(`Strava Auto-Kudos - ${startTime}`);
   console.log('='.repeat(50));
 
   // Load configuration
@@ -40,8 +41,9 @@ async function main(): Promise<void> {
     );
 
     // Print summary
+    const endTime = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     console.log('\n' + '='.repeat(50));
-    console.log('Summary');
+    console.log(`Summary - ${endTime}`);
     console.log('='.repeat(50));
     console.log(`  Kudos given: ${result.given}`);
     console.log(`  Errors: ${result.errors}`);

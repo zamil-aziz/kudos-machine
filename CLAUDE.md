@@ -24,7 +24,11 @@ Based on testing, here's what we learned about Strava's rate limits:
 | Jan 21 | #6 | 11 | Partial recovery - sliding window |
 | Jan 22 | #7 | 0 | Immediate block (club 470584) |
 | Jan 22 | #8 | 96 | Switched club → worked until ~100 limit |
-| **Total** | | ~447 | |
+| Jan 22 | #9 | 0 | Blocked (1hr after #8) |
+| Jan 22 | #10 | 0 | Club-switch didn't help this time |
+| Jan 22 | #11 | 87 | Recovered after longer wait |
+| Jan 22, 5:55pm | #12 | 97 | 2 sporadic rejections mid-run, recovered, then 3 consecutive |
+| **Total** | | ~631 | |
 
 ### Two Types of Blocks
 
@@ -40,16 +44,17 @@ Based on testing, here's what we learned about Strava's rate limits:
 
 ### Club-Switching Behavior
 
-- Switching clubs may help bypass immediate blocks
-- Rate limit appears to be account-wide but club-switching can reset detection
-- Useful when hitting immediate blocks on one club
+- Switching clubs sometimes bypasses immediate blocks (worked in run #8)
+- But not always reliable (failed in run #10)
+- Rate limit is account-wide, not per-club
+- Recovery requires time, not just club changes
 
 ### Safe Operating Guidelines
 
 - **Default limit:** None (runs until rate limited)
-- **Frequency:** Once or twice per day
-- **Between runs:** Wait 10-15 minutes minimum
-- **Daily max:** Stay under ~200 for best recovery
+- **Burst limit:** ~80-100 kudos per run
+- **Between runs:** Wait 2+ hours for full recovery (1 hour may not be enough)
+- **Daily potential:** 500+ kudos across multiple runs with proper waits
 
 ### Cookie Notes
 
