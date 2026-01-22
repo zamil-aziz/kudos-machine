@@ -8,9 +8,9 @@ Based on testing, here's what we learned about Strava's rate limits:
 
 | Type | Limit | What happens |
 |------|-------|--------------|
-| **Burst limit** | ~100-140 kudos | Connection closed or kudos rejected |
-| **Cooldown** | ~10 minutes | Resets burst limit |
-| **Daily cap** | ~200-300 kudos | 24hr ban (suspected) |
+| **Burst limit** | ~100 kudos | 3 consecutive rejections |
+| **Recovery** | Sliding window | Partial recovery over time (not hard reset) |
+| **Daily cap** | ~300+ kudos | Slower recovery, sporadic rejections |
 
 ### Test Results
 
@@ -20,7 +20,11 @@ Based on testing, here's what we learned about Strava's rate limits:
 | Jan 20 | #2 (after 10 min) | 137 | 3 consecutive rejections |
 | Jan 21 | #3 (stale bug) | 26 | Killed manually - 50% lost to stale elements |
 | Jan 21 | #4 (stale fix) | 99 | 3 consecutive rejections |
-| **Total** | | ~340 | |
+| Jan 21 | #5 | 0 | Immediate block |
+| Jan 21 | #6 | 11 | Partial recovery - sliding window |
+| Jan 22 | #7 | 0 | Immediate block (club 470584) |
+| Jan 22 | #8 | 96 | Switched club → worked until ~100 limit |
+| **Total** | | ~447 | |
 
 ### Two Types of Blocks
 
@@ -34,12 +38,18 @@ Based on testing, here's what we learned about Strava's rate limits:
    - Script detects via count verification
    - 3 consecutive = stop (rate limited)
 
+### Club-Switching Behavior
+
+- Switching clubs may help bypass immediate blocks
+- Rate limit appears to be account-wide but club-switching can reset detection
+- Useful when hitting immediate blocks on one club
+
 ### Safe Operating Guidelines
 
 - **Default limit:** None (runs until rate limited)
 - **Frequency:** Once or twice per day
 - **Between runs:** Wait 10-15 minutes minimum
-- **Daily max:** Stay under ~200 to avoid 24hr ban
+- **Daily max:** Stay under ~200 for best recovery
 
 ### Cookie Notes
 
