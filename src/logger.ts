@@ -32,6 +32,10 @@ export function appendRunLog(log: RunLog): void {
     }
   }
 
+  // Add run number to notes
+  const runNumber = logs.length + 1;
+  log.notes = `Run #${runNumber}`;
+
   // Append new log
   logs.push(log);
 
