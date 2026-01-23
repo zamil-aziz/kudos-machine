@@ -1,9 +1,14 @@
 import { Page } from 'playwright';
 
-const KUDOS_DELAY_MS = 100; // Minimal delay - we rely on verification to detect rate limiting
+const KUDOS_DELAY_MIN_MS = 300; // Randomized delay range to mimic human clicking
+const KUDOS_DELAY_MAX_MS = 800;
 const MAX_KUDOS_PER_CLUB = 100; // Strava limit is ~100 per 10 minutes
 const SCROLL_DELAY_MS = 400;
 const PAGE_LOAD_DELAY_MS = 2000;
+
+function randomDelay(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
 export async function fetchUserClubs(page: Page): Promise<string[]> {
   console.log('\nFetching your clubs...');
@@ -220,8 +225,8 @@ export async function giveKudos(
         }
       }
 
-      // Delay between kudos
-      await page.waitForTimeout(KUDOS_DELAY_MS);
+      // Randomized delay between kudos to mimic human behavior
+      await page.waitForTimeout(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
 
     } catch (error) {
       const errorMsg = String(error);

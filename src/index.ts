@@ -1,8 +1,10 @@
 import { loadConfig } from './config';
 import { launchBrowser, closeBrowser } from './browser';
 import { giveKudosToAllFeeds, fetchUserClubs } from './kudos';
+import { appendRunLog } from './logger';
 
 async function main(): Promise<void> {
+  const startMs = Date.now();
   const startTime = new Date().toLocaleString();
   console.log('='.repeat(50));
   console.log(`Strava Auto-Kudos - ${startTime}`);
@@ -47,6 +49,18 @@ async function main(): Promise<void> {
     console.log('='.repeat(50));
     console.log(`  Kudos given: ${result.given}`);
     console.log(`  Errors: ${result.errors}`);
+    console.log(`  Rate limited: ${result.rateLimited}`);
+
+    // Log run to JSON file
+    appendRunLog({
+      timestamp: new Date().toISOString(),
+      kudosGiven: result.given,
+      errors: result.errors,
+      rateLimited: result.rateLimited,
+      clubIds,
+      dryRun: config.dryRun,
+      durationMs: Date.now() - startMs,
+    });
 
     if (result.errors > 0) {
       console.log('\n⚠️  Some errors occurred during execution');

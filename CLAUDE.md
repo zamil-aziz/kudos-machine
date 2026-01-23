@@ -10,25 +10,7 @@ Based on testing, here's what we learned about Strava's rate limits:
 |------|-------|--------------|
 | **Burst limit** | ~100 kudos | 3 consecutive rejections |
 | **Recovery** | Sliding window | Partial recovery over time (not hard reset) |
-| **Daily cap** | ~300+ kudos | Slower recovery, sporadic rejections |
-
-### Test Results
-
-| Date | Run | Kudos | Result |
-|------|-----|-------|--------|
-| Jan 20 | #1 | 78 | Connection closed by Strava |
-| Jan 20 | #2 (after 10 min) | 137 | 3 consecutive rejections |
-| Jan 21 | #3 (stale bug) | 26 | Killed manually - 50% lost to stale elements |
-| Jan 21 | #4 (stale fix) | 99 | 3 consecutive rejections |
-| Jan 21 | #5 | 0 | Immediate block |
-| Jan 21 | #6 | 11 | Partial recovery - sliding window |
-| Jan 22 | #7 | 0 | Immediate block (club 470584) |
-| Jan 22 | #8 | 96 | Switched club → worked until ~100 limit |
-| Jan 22 | #9 | 0 | Blocked (1hr after #8) |
-| Jan 22 | #10 | 0 | Club-switch didn't help this time |
-| Jan 22 | #11 | 87 | Recovered after longer wait |
-| Jan 22, 5:55pm | #12 | 97 | 2 sporadic rejections mid-run, recovered, then 3 consecutive |
-| **Total** | | ~631 | |
+| **Daily cap** | ~750-800 kudos | Cumulative limit, severely reduced recovery |
 
 ### Two Types of Blocks
 
@@ -49,12 +31,21 @@ Based on testing, here's what we learned about Strava's rate limits:
 - Rate limit is account-wide, not per-club
 - Recovery requires time, not just club changes
 
+### Cumulative Limit Evidence
+
+Run #15 revealed a daily cumulative limit:
+- Despite 2.5 hour wait, only got 30 kudos (vs typical ~100)
+- Total for Jan 22: ~400+ kudos before #15, ~430+ after
+- 3-day total: ~775 kudos
+- Recovery time becomes irrelevant once cumulative cap reached
+- **Confirmed:** Limit resets daily - Jan 23 run got 151 kudos after overnight wait
+
 ### Safe Operating Guidelines
 
 - **Default limit:** None (runs until rate limited)
 - **Burst limit:** ~80-100 kudos per run
 - **Between runs:** Wait 2+ hours for full recovery (1 hour may not be enough)
-- **Daily potential:** 500+ kudos across multiple runs with proper waits
+- **Daily potential:** ~400-500 kudos reliably, diminishing returns after ~600
 
 ### Cookie Notes
 
