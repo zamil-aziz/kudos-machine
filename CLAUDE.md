@@ -8,7 +8,8 @@ Based on testing, here's what we learned about Strava's rate limits:
 
 | Type | Limit | What happens |
 |------|-------|--------------|
-| **Burst limit** | ~100 kudos | 3 consecutive rejections |
+| **Burst limit (no delays)** | ~100 kudos | 3 consecutive rejections |
+| **Burst limit (with delays)** | 130+ kudos | Sporadic rejections, recovers |
 | **Recovery** | Sliding window | Partial recovery over time (not hard reset) |
 | **Daily cap** | ~750-800 kudos | Cumulative limit, severely reduced recovery |
 
@@ -23,6 +24,20 @@ Based on testing, here's what we learned about Strava's rate limits:
    - Strava ignores the click
    - Script detects via count verification
    - 3 consecutive = stop (rate limited)
+
+### Delay Impact (Jan 23 Discovery)
+
+Adding delays between kudos significantly improves throughput:
+
+| Without delays | With delays |
+|----------------|-------------|
+| ~100 kudos before hard stop | 130+ kudos per run |
+| 3 consecutive rejections = stop | Sporadic rejections recover |
+| Rate limit is count-based | Rate limit is partially speed-based |
+
+**Run #20 results:** 138 kudos with only 3 sporadic rejections (all recovered). No 3-consecutive block triggered.
+
+The delays allow Strava's rate limiter to "reset" between kudos, turning the hard burst limit into a soft one.
 
 ### Club-Switching Behavior
 
@@ -43,9 +58,9 @@ Run #15 revealed a daily cumulative limit:
 ### Safe Operating Guidelines
 
 - **Default limit:** None (runs until rate limited)
-- **Burst limit:** ~80-100 kudos per run
+- **Burst limit:** ~130+ kudos per run (with delays enabled)
 - **Between runs:** Wait 2+ hours for full recovery (1 hour may not be enough)
-- **Daily potential:** ~400-500 kudos reliably, diminishing returns after ~600
+- **Daily potential:** ~500+ kudos reliably with delays
 
 ### Cookie Notes
 

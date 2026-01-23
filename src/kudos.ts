@@ -1,7 +1,7 @@
 import { Page } from 'playwright';
 
-const KUDOS_DELAY_MIN_MS = 300; // Randomized delay range to mimic human clicking
-const KUDOS_DELAY_MAX_MS = 800;
+const KUDOS_DELAY_MIN_MS = 500; // Randomized delay range to mimic human clicking
+const KUDOS_DELAY_MAX_MS = 1200;
 const MAX_KUDOS_PER_CLUB = 100; // Strava limit is ~100 per 10 minutes
 const SCROLL_DELAY_MS = 400;
 const PAGE_LOAD_DELAY_MS = 2000;

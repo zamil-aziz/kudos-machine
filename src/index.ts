@@ -42,17 +42,8 @@ async function main(): Promise<void> {
       config.dryRun
     );
 
-    // Print summary
-    const endTime = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    console.log('\n' + '='.repeat(50));
-    console.log(`Summary - ${endTime}`);
-    console.log('='.repeat(50));
-    console.log(`  Kudos given: ${result.given}`);
-    console.log(`  Errors: ${result.errors}`);
-    console.log(`  Rate limited: ${result.rateLimited}`);
-
-    // Log run to JSON file
-    appendRunLog({
+    // Log run to JSON file and get daily total
+    const dailyTotal = appendRunLog({
       timestamp: new Date().toISOString(),
       kudosGiven: result.given,
       errors: result.errors,
@@ -61,6 +52,16 @@ async function main(): Promise<void> {
       dryRun: config.dryRun,
       durationMs: Date.now() - startMs,
     });
+
+    // Print summary
+    const endTime = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    console.log('\n' + '='.repeat(50));
+    console.log(`Summary - ${endTime}`);
+    console.log('='.repeat(50));
+    console.log(`  Kudos given: ${result.given}`);
+    console.log(`  Daily total: ${dailyTotal}`);
+    console.log(`  Errors: ${result.errors}`);
+    console.log(`  Rate limited: ${result.rateLimited}`);
 
     if (result.errors > 0) {
       console.log('\n⚠️  Some errors occurred during execution');

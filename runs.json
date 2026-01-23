@@ -6,7 +6,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #1 - Connection closed by Strava"
+    "notes": "Run #1 - Connection closed by Strava",
+    "dailyTotal": 78
   },
   {
     "timestamp": "2026-01-20T12:10:00.000Z",
@@ -15,7 +16,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #2 (after 10 min) - 3 consecutive rejections"
+    "notes": "Run #2 (after 10 min) - 3 consecutive rejections",
+    "dailyTotal": 215
   },
   {
     "timestamp": "2026-01-21T09:00:00.000Z",
@@ -24,7 +26,8 @@
     "rateLimited": false,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #3 (stale bug) - Killed manually - 50% lost to stale elements"
+    "notes": "Run #3 (stale bug) - Killed manually - 50% lost to stale elements",
+    "dailyTotal": 26
   },
   {
     "timestamp": "2026-01-21T10:00:00.000Z",
@@ -33,7 +36,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #4 (stale fix) - 3 consecutive rejections"
+    "notes": "Run #4 (stale fix) - 3 consecutive rejections",
+    "dailyTotal": 125
   },
   {
     "timestamp": "2026-01-21T11:00:00.000Z",
@@ -42,7 +46,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #5 - Immediate block"
+    "notes": "Run #5 - Immediate block",
+    "dailyTotal": 125
   },
   {
     "timestamp": "2026-01-21T12:00:00.000Z",
@@ -51,7 +56,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #6 - Partial recovery - sliding window"
+    "notes": "Run #6 - Partial recovery - sliding window",
+    "dailyTotal": 136
   },
   {
     "timestamp": "2026-01-22T09:00:00.000Z",
@@ -62,7 +68,8 @@
       "470584"
     ],
     "dryRun": false,
-    "notes": "Run #7 - Immediate block (club 470584)"
+    "notes": "Run #7 - Immediate block (club 470584)",
+    "dailyTotal": 0
   },
   {
     "timestamp": "2026-01-22T10:00:00.000Z",
@@ -71,7 +78,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #8 - Switched club, worked until ~100 limit"
+    "notes": "Run #8 - Switched club, worked until ~100 limit",
+    "dailyTotal": 96
   },
   {
     "timestamp": "2026-01-22T11:00:00.000Z",
@@ -80,7 +88,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #9 - Blocked (1hr after #8)"
+    "notes": "Run #9 - Blocked (1hr after #8)",
+    "dailyTotal": 96
   },
   {
     "timestamp": "2026-01-22T12:00:00.000Z",
@@ -89,7 +98,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #10 - Club-switch didn't help this time"
+    "notes": "Run #10 - Club-switch didn't help this time",
+    "dailyTotal": 96
   },
   {
     "timestamp": "2026-01-22T14:00:00.000Z",
@@ -98,7 +108,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #11 - Recovered after longer wait"
+    "notes": "Run #11 - Recovered after longer wait",
+    "dailyTotal": 183
   },
   {
     "timestamp": "2026-01-22T17:55:00.000Z",
@@ -107,7 +118,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #12 - 2 sporadic rejections mid-run, recovered, then 3 consecutive"
+    "notes": "Run #12 - 2 sporadic rejections mid-run, recovered, then 3 consecutive",
+    "dailyTotal": 280
   },
   {
     "timestamp": "2026-01-22T19:01:00.000Z",
@@ -116,7 +128,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #13 (random delays) - 6 sporadic rejections, then 3 consecutive"
+    "notes": "Run #13 (random delays) - 6 sporadic rejections, then 3 consecutive",
+    "dailyTotal": 296
   },
   {
     "timestamp": "2026-01-22T19:11:00.000Z",
@@ -125,7 +138,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #14 - 1 sporadic rejection, recovered, then 3 consecutive"
+    "notes": "Run #14 - 1 sporadic rejection, recovered, then 3 consecutive",
+    "dailyTotal": 394
   },
   {
     "timestamp": "2026-01-22T21:32:00.000Z",
@@ -134,7 +148,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #15 - 3 consecutive rejections at #31"
+    "notes": "Run #15 - 3 consecutive rejections at #31",
+    "dailyTotal": 424
   },
   {
     "timestamp": "2026-01-23T09:18:00.000Z",
@@ -143,7 +158,8 @@
     "rateLimited": true,
     "clubIds": [],
     "dryRun": false,
-    "notes": "Run #16 - 4 sporadic rejections, then 3 consecutive"
+    "notes": "Run #16 - 4 sporadic rejections, then 3 consecutive",
+    "dailyTotal": 151
   },
   {
     "timestamp": "2026-01-23T04:02:13.522Z",
@@ -156,6 +172,56 @@
       "470584"
     ],
     "dryRun": false,
-    "durationMs": 161679
+    "durationMs": 161679,
+    "notes": "Run #17",
+    "dailyTotal": 258
+  },
+  {
+    "timestamp": "2026-01-23T05:36:10.648Z",
+    "kudosGiven": 48,
+    "errors": 0,
+    "rateLimited": false,
+    "clubIds": [
+      "117492",
+      "470994",
+      "470584"
+    ],
+    "dryRun": false,
+    "durationMs": 105996,
+    "notes": "Run #18",
+    "dailyTotal": 306
+  },
+  {
+    "timestamp": "2026-01-23T05:47:07.417Z",
+    "kudosGiven": 4,
+    "errors": 0,
+    "rateLimited": false,
+    "clubIds": [
+      "231407",
+      "117492",
+      "470584",
+      "470994"
+    ],
+    "dryRun": false,
+    "durationMs": 71209,
+    "notes": "Run #19",
+    "dailyTotal": 310
+  },
+  {
+    "timestamp": "2026-01-23T06:12:56.076Z",
+    "kudosGiven": 138,
+    "errors": 0,
+    "rateLimited": false,
+    "clubIds": [
+      "117492",
+      "722299",
+      "150558",
+      "470584",
+      "470994"
+    ],
+    "dryRun": false,
+    "durationMs": 288217,
+    "notes": "Run #20",
+    "dailyTotal": 448
   }
 ]
