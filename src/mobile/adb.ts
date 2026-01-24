@@ -125,27 +125,41 @@ export async function isAppInForeground(packageName: string): Promise<boolean> {
 
 /**
  * Dump UI hierarchy and return parsed elements
+ * Includes retry logic to handle UIAutomator timeouts after many rapid calls
  */
 export async function dumpUi(): Promise<UiElement[]> {
   const tmpFile = '/sdcard/window_dump.xml';
   const localFile = join(process.cwd(), '.tmp_ui_dump.xml');
 
-  try {
-    // Dump UI hierarchy to file on device
-    await shell(`uiautomator dump ${tmpFile}`);
+  const maxRetries = 3;
+  const retryDelayMs = 2000;
 
-    // Pull the file
-    execSync(`adb pull ${tmpFile} "${localFile}"`, { stdio: 'pipe' });
-
-    // Read and parse
-    const xml = readFileSync(localFile, 'utf-8');
-    return parseUiHierarchy(xml);
-  } finally {
-    // Cleanup
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      unlinkSync(localFile);
-    } catch { /* ignore */ }
+      // Dump UI hierarchy to file on device
+      await shell(`uiautomator dump ${tmpFile}`);
+
+      // Pull the file
+      execSync(`adb pull ${tmpFile} "${localFile}"`, { stdio: 'pipe' });
+
+      // Read and parse
+      const xml = readFileSync(localFile, 'utf-8');
+      return parseUiHierarchy(xml);
+    } catch (error) {
+      if (attempt < maxRetries) {
+        console.log(`⚠ UI dump failed (attempt ${attempt}/${maxRetries}), retrying...`);
+        await delay(retryDelayMs);
+      } else {
+        throw new Error(`UI dump failed after ${maxRetries} attempts: ${error}`);
+      }
+    } finally {
+      // Cleanup
+      try {
+        unlinkSync(localFile);
+      } catch { /* ignore */ }
+    }
   }
+  return []; // Unreachable but satisfies TypeScript
 }
 
 /**

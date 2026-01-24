@@ -326,7 +326,6 @@ async function goBack(): Promise<void> {
 
 /**
  * Give kudos to a single activity (just tap, no verification)
- * Verification is done in batches to reduce UI dump calls
  */
 async function giveKudosToActivity(button: adb.UiElement): Promise<void> {
   await adb.tapElement(button);
@@ -354,8 +353,14 @@ async function giveKudosOnCurrentFeed(
   const maxNoNewButtons = 10; // Stop after 10 scrolls with no new buttons
 
   while (!state.rateLimited && state.given < maxKudos) {
-    // Dump current UI (one dump per batch)
-    const elements = await adb.dumpUi();
+    // Dump current UI (one dump per scroll)
+    let elements: adb.UiElement[];
+    try {
+      elements = await adb.dumpUi();
+    } catch (error) {
+      console.log(`\n⚠ UI dump failed, stopping gracefully (${state.given} kudos given)`);
+      break;
+    }
 
     // Find kudos buttons (findKudosButtons already filters for unfilled)
     const kudosButtons = findKudosButtons(elements)
@@ -399,36 +404,35 @@ async function giveKudosOnCurrentFeed(
         console.log('No more activities to kudos on this feed');
         break;
       }
+    } else {
+      noNewButtonsCount = 0;
 
-      // Small scroll to avoid missing activities (one activity height ~400px)
-      await adb.scrollDown(400, 100);
-      await adb.delay(80);
-      continue;
-    }
+      // BATCH TAP: Tap all visible buttons quickly
+      for (const button of newButtons) {
+        if (state.given >= maxKudos) break;
 
-    noNewButtonsCount = 0;
+        const posKey = `${button.bounds.x1},${button.bounds.y1}`;
+        state.processedPositions.add(posKey);
 
-    // BATCH TAP: Tap all visible buttons quickly
-    for (const button of newButtons) {
-      if (state.given >= maxKudos) break;
+        if (dryRun) {
+          console.log(`[DRY RUN] Would give kudos at (${adb.getCenter(button).x}, ${adb.getCenter(button).y})`);
+          state.given++;
+          continue;
+        }
 
-      const posKey = `${button.bounds.x1},${button.bounds.y1}`;
-      state.processedPositions.add(posKey);
-
-      if (dryRun) {
-        console.log(`[DRY RUN] Would give kudos at (${adb.getCenter(button).x}, ${adb.getCenter(button).y})`);
+        // Tap without waiting for verification
+        await giveKudosToActivity(button);
         state.given++;
-        continue;
+        console.log(`✓ Tapped kudos (${state.given})`);
+
+        // Brief delay between taps
+        await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
       }
-
-      // Tap without waiting for verification
-      await giveKudosToActivity(button);
-      state.given++;
-      console.log(`✓ Tapped kudos (${state.given})`);
-
-      // Brief delay between taps
-      await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
     }
+
+    // Always scroll after processing to load new content for next dumpUi
+    await adb.scrollDown(400, 100);
+    await adb.delay(80);
   }
 
   return state;
@@ -538,6 +542,10 @@ export async function giveKudosMobile(
       // Go back to clubs list
       await goBack();
       await adb.delay(NAV_DELAY_MS);
+
+      // Clear processed positions when switching clubs (positions are screen-relative)
+      // Different clubs have different activities at the same screen positions
+      state.processedPositions.clear();
 
       // Re-fetch clubs list (UI may have changed)
       clubs = await getClubsList();
