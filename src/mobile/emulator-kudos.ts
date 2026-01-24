@@ -325,41 +325,11 @@ async function goBack(): Promise<void> {
 }
 
 /**
- * Give kudos to a single activity
- * Returns true if successful, false if failed/rejected
+ * Give kudos to a single activity (just tap, no verification)
+ * Verification is done in batches to reduce UI dump calls
  */
-async function giveKudosToActivity(button: adb.UiElement): Promise<boolean> {
-  try {
-    // Tap the kudos button
-    await adb.tapElement(button);
-    await adb.delay(500);
-
-    // Verify the kudos was given by checking if the button state changed
-    // We re-dump the UI and check if the same area now shows "Kudos Given"
-    const elements = await adb.dumpUi();
-
-    // Look for elements near the same position
-    const center = adb.getCenter(button);
-    const nearbyElements = elements.filter(el => {
-      const elCenter = adb.getCenter(el);
-      const distance = Math.sqrt(
-        Math.pow(elCenter.x - center.x, 2) +
-        Math.pow(elCenter.y - center.y, 2)
-      );
-      return distance < 100; // Within 100 pixels
-    });
-
-    // Check if any nearby element indicates kudos was given
-    // "Kudos Given" is the content-desc for filled kudos buttons
-    const kudosGiven = nearbyElements.some(el => {
-      return el.contentDesc === 'Kudos Given';
-    });
-
-    return kudosGiven;
-  } catch (error) {
-    console.error('Error tapping kudos button:', error);
-    return false;
-  }
+async function giveKudosToActivity(button: adb.UiElement): Promise<void> {
+  await adb.tapElement(button);
 }
 
 interface FeedKudosState {
@@ -371,8 +341,9 @@ interface FeedKudosState {
 }
 
 /**
- * Give kudos on the current feed/screen
- * Returns updated state after processing visible activities
+ * Give kudos on the current feed/screen using batch processing
+ * Taps all visible buttons quickly with deferred rate limit detection
+ * (detects failures on next iteration when previously-tapped buttons are still unfilled)
  */
 async function giveKudosOnCurrentFeed(
   state: FeedKudosState,
@@ -383,7 +354,7 @@ async function giveKudosOnCurrentFeed(
   const maxNoNewButtons = 10; // Stop after 10 scrolls with no new buttons
 
   while (!state.rateLimited && state.given < maxKudos) {
-    // Dump current UI
+    // Dump current UI (one dump per batch)
     const elements = await adb.dumpUi();
 
     // Find kudos buttons (findKudosButtons already filters for unfilled)
@@ -395,6 +366,32 @@ async function giveKudosOnCurrentFeed(
       const posKey = `${el.bounds.x1},${el.bounds.y1}`;
       return !state.processedPositions.has(posKey);
     });
+
+    // DEFERRED RATE LIMIT DETECTION: Check if previously tapped buttons are still unfilled
+    // If buttons we tapped before are still showing "Give Kudos", our taps failed
+    if (!dryRun && state.processedPositions.size > 0) {
+      const stillUnfilledFromPrevious = kudosButtons.filter(el => {
+        const posKey = `${el.bounds.x1},${el.bounds.y1}`;
+        return state.processedPositions.has(posKey);
+      });
+
+      if (stillUnfilledFromPrevious.length >= 3) {
+        console.log(`⛔ ${stillUnfilledFromPrevious.length} previous kudos still unfilled - rate limited`);
+        state.rateLimited = true;
+        state.errors += stillUnfilledFromPrevious.length;
+        state.given -= stillUnfilledFromPrevious.length;
+        break;
+      } else if (stillUnfilledFromPrevious.length > 0) {
+        console.log(`⚠ ${stillUnfilledFromPrevious.length} previous kudos may have failed (sporadic)`);
+        state.errors += stillUnfilledFromPrevious.length;
+        state.given -= stillUnfilledFromPrevious.length;
+        // Remove from processedPositions so we don't double-count on next iteration
+        for (const el of stillUnfilledFromPrevious) {
+          const posKey = `${el.bounds.x1},${el.bounds.y1}`;
+          state.processedPositions.delete(posKey);
+        }
+      }
+    }
 
     if (newButtons.length === 0) {
       noNewButtonsCount++;
@@ -411,9 +408,9 @@ async function giveKudosOnCurrentFeed(
 
     noNewButtonsCount = 0;
 
-    // Process ALL visible buttons before scrolling (reduces UI dump calls)
+    // BATCH TAP: Tap all visible buttons quickly
     for (const button of newButtons) {
-      if (state.rateLimited || state.given >= maxKudos) break;
+      if (state.given >= maxKudos) break;
 
       const posKey = `${button.bounds.x1},${button.bounds.y1}`;
       state.processedPositions.add(posKey);
@@ -424,26 +421,12 @@ async function giveKudosOnCurrentFeed(
         continue;
       }
 
-      // Attempt to give kudos
-      const success = await giveKudosToActivity(button);
+      // Tap without waiting for verification
+      await giveKudosToActivity(button);
+      state.given++;
+      console.log(`✓ Tapped kudos (${state.given})`);
 
-      if (success) {
-        state.given++;
-        state.consecutiveErrors = 0;
-        console.log(`✓ Gave kudos (${state.given})`);
-      } else {
-        state.consecutiveErrors++;
-        state.errors++;
-        console.log(`✗ Kudos may have been rejected (${state.consecutiveErrors} consecutive)`);
-
-        if (state.consecutiveErrors >= 3) {
-          console.log('⛔ 3 consecutive rejections - stopping (rate limited)');
-          state.rateLimited = true;
-          break;
-        }
-      }
-
-      // Brief delay between kudos
+      // Brief delay between taps
       await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
     }
   }
