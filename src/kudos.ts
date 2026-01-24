@@ -1,7 +1,7 @@
 import { Page } from 'playwright';
 
-const KUDOS_DELAY_MIN_MS = 500; // Randomized delay range to mimic human clicking
-const KUDOS_DELAY_MAX_MS = 1200;
+const KUDOS_DELAY_MIN_MS = 1000; // Randomized delay range to mimic human clicking
+const KUDOS_DELAY_MAX_MS = 2500;
 const MAX_KUDOS_PER_CLUB = 100; // Strava limit is ~100 per 10 minutes
 const SCROLL_DELAY_MS = 400;
 const PAGE_LOAD_DELAY_MS = 2000;
@@ -228,6 +228,13 @@ export async function giveKudos(
       // Randomized delay between kudos to mimic human behavior
       await page.waitForTimeout(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
 
+      // 10% chance of a longer pause to appear more human
+      if (Math.random() < 0.1) {
+        const longPause = randomDelay(3000, 6000);
+        console.log(`  ☕ Taking a ${(longPause/1000).toFixed(1)}s break...`);
+        await page.waitForTimeout(longPause);
+      }
+
     } catch (error) {
       const errorMsg = String(error);
       console.error(`Error giving kudos: ${error}`);
@@ -276,8 +283,9 @@ export async function giveKudosToAllFeeds(
 
     // Wait between clubs (longer delay to avoid rate limiting)
     if (clubIds.length > 1) {
-      console.log('Waiting 5s before next club...');
-      await page.waitForTimeout(5000);
+      const clubDelay = randomDelay(4000, 8000);
+      console.log(`Waiting ${(clubDelay/1000).toFixed(1)}s before next club...`);
+      await page.waitForTimeout(clubDelay);
     }
   }
 

@@ -3,6 +3,8 @@ export interface Config {
   clubIds: string[];
   maxKudosPerRun: number;
   dryRun: boolean;
+  mobileOnly: boolean;    // Skip browser, use mobile emulator only
+  skipMobile: boolean;    // Disable mobile fallback
 }
 
 export function loadConfig(): Config {
@@ -28,11 +30,15 @@ export function loadConfig(): Config {
     }
   }
   const dryRun = process.env.DRY_RUN === 'true';
+  const mobileOnly = process.env.MOBILE_ONLY === 'true';
+  const skipMobile = process.env.SKIP_MOBILE === 'true';
 
   return {
     stravaSession,
     clubIds,
     maxKudosPerRun,
     dryRun,
+    mobileOnly,
+    skipMobile,
   };
 }

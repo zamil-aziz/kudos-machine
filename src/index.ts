@@ -2,6 +2,7 @@ import { loadConfig } from './config';
 import { launchBrowser, closeBrowser } from './browser';
 import { giveKudosToAllFeeds, fetchUserClubs } from './kudos';
 import { appendRunLog } from './logger';
+import { isMobileAvailable, giveKudosMobile } from './mobile/emulator-kudos';
 
 async function main(): Promise<void> {
   const startMs = Date.now();
@@ -17,6 +18,7 @@ async function main(): Promise<void> {
   console.log(`  Club IDs: ${config.clubIds.length > 0 ? config.clubIds.join(', ') : '(default feed)'}`);
   console.log(`  Max kudos per run: ${config.maxKudosPerRun === Infinity ? 'unlimited' : config.maxKudosPerRun}`);
   console.log(`  Dry run: ${config.dryRun}`);
+  console.log(`  Mode: ${config.mobileOnly ? 'mobile only' : config.skipMobile ? 'browser only' : 'browser + mobile fallback'}`);
 
   if (config.dryRun) {
     console.log('\n⚠️  DRY RUN MODE - No kudos will actually be given');
@@ -25,22 +27,65 @@ async function main(): Promise<void> {
   let session;
 
   try {
-    // Launch browser with session cookie
-    session = await launchBrowser(config.stravaSession);
+    let browserResult = { given: 0, errors: 0, rateLimited: false };
+    let mobileResult = { given: 0, errors: 0, rateLimited: false };
 
-    // Auto-fetch clubs if none specified
-    let clubIds = config.clubIds;
-    if (clubIds.length === 0) {
-      clubIds = await fetchUserClubs(session.page);
+    // Run browser automation (unless mobile-only mode)
+    if (!config.mobileOnly) {
+      // Launch browser with session cookie
+      session = await launchBrowser(config.stravaSession);
+
+      // Auto-fetch clubs if none specified
+      let clubIds = config.clubIds;
+      if (clubIds.length === 0) {
+        clubIds = await fetchUserClubs(session.page);
+      }
+
+      // Give kudos to all configured feeds
+      browserResult = await giveKudosToAllFeeds(
+        session.page,
+        clubIds,
+        config.maxKudosPerRun,
+        config.dryRun
+      );
+
+      // Close browser before potentially switching to mobile
+      await closeBrowser(session);
+      session = undefined;
     }
 
-    // Give kudos to all configured feeds
-    const result = await giveKudosToAllFeeds(
-      session.page,
-      clubIds,
-      config.maxKudosPerRun,
-      config.dryRun
-    );
+    // Mobile automation: either in mobile-only mode or as fallback after rate limit
+    const shouldRunMobile = config.mobileOnly ||
+      (browserResult.rateLimited && !config.skipMobile);
+
+    if (shouldRunMobile) {
+      if (isMobileAvailable()) {
+        if (config.mobileOnly) {
+          console.log('\n📱 Running in mobile-only mode...');
+        } else {
+          console.log('\n🔄 Browser rate limited, switching to mobile emulator...');
+        }
+
+        const remainingKudos = config.maxKudosPerRun === Infinity
+          ? Infinity
+          : config.maxKudosPerRun - browserResult.given;
+
+        mobileResult = await giveKudosMobile(remainingKudos, config.dryRun);
+      } else {
+        console.log('\n📱 Mobile automation unavailable (no emulator detected)');
+        console.log('   To enable: start an Android emulator with Strava installed');
+        if (config.mobileOnly) {
+          throw new Error('Mobile-only mode requested but no emulator available');
+        }
+      }
+    }
+
+    // Combine results
+    const result = {
+      given: browserResult.given + mobileResult.given,
+      errors: browserResult.errors + mobileResult.errors,
+      rateLimited: browserResult.rateLimited && (config.skipMobile || mobileResult.rateLimited),
+    };
 
     // Log run to JSON file and get daily total
     const dailyTotal = appendRunLog({

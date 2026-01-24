@@ -71,7 +71,7 @@ Run #15 revealed a daily cumulative limit:
 ## Running the Script
 
 ```bash
-# Standard run (runs until rate limited)
+# Standard run (browser + mobile fallback)
 STRAVA_SESSION="your_cookie" bun start
 
 # With a limit
@@ -80,6 +80,48 @@ STRAVA_SESSION="your_cookie" MAX_KUDOS_PER_RUN=50 bun start
 # Dry run (test without giving kudos)
 STRAVA_SESSION="your_cookie" DRY_RUN=true bun start
 
+# Mobile-only mode (skip browser, use emulator only)
+STRAVA_SESSION="your_cookie" MOBILE_ONLY=true bun start
+
+# Browser-only mode (disable mobile fallback)
+STRAVA_SESSION="your_cookie" SKIP_MOBILE=true bun start
+
 # Or use npm if bun not installed
 STRAVA_SESSION="your_cookie" npm start
 ```
+
+## Mobile Automation Setup
+
+The script supports dual-platform automation to maximize daily kudos:
+- **Browser (Playwright):** ~130 kudos per rate limit bucket
+- **Mobile (Android Emulator):** ~130 kudos per rate limit bucket
+- **Combined:** ~260+ kudos per day
+
+### Prerequisites
+
+1. **Android Studio** with an emulator configured
+2. **ADB** installed (`brew install android-platform-tools`)
+3. **Strava app** installed and logged in on the emulator
+
+### Setup Steps
+
+```bash
+# List available emulators
+emulator -list-avds
+
+# Start an emulator (use Google APIs image, not Google Play)
+emulator -avd <name>
+
+# Verify ADB can see the emulator
+adb devices
+
+# Install Strava APK if needed
+adb install strava.apk
+```
+
+### How It Works
+
+1. Browser runs first, giving kudos until rate limited
+2. When browser hits rate limit, script switches to mobile emulator
+3. Mobile uses ADB to control the Strava app via UI automation
+4. Separate rate limit buckets mean ~2x total kudos
