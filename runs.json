@@ -105,7 +105,7 @@
     "rateLimited": true,
     "dryRun": false,
     "notes": "Run #12 - 2 sporadic rejections mid-run, recovered, then 3 consecutive",
-    "dailyTotal": 280
+    "dailyTotal": 97
   },
   {
     "timestamp": "2026-01-22T19:01:00.000Z",
@@ -114,7 +114,7 @@
     "rateLimited": true,
     "dryRun": false,
     "notes": "Run #13 (random delays) - 6 sporadic rejections, then 3 consecutive",
-    "dailyTotal": 296
+    "dailyTotal": 113
   },
   {
     "timestamp": "2026-01-22T19:11:00.000Z",
@@ -123,7 +123,7 @@
     "rateLimited": true,
     "dryRun": false,
     "notes": "Run #14 - 1 sporadic rejection, recovered, then 3 consecutive",
-    "dailyTotal": 394
+    "dailyTotal": 211
   },
   {
     "timestamp": "2026-01-22T21:32:00.000Z",
@@ -132,7 +132,7 @@
     "rateLimited": true,
     "dryRun": false,
     "notes": "Run #15 - 3 consecutive rejections at #31",
-    "dailyTotal": 424
+    "dailyTotal": 241
   },
   {
     "timestamp": "2026-01-23T09:18:00.000Z",
@@ -141,7 +141,7 @@
     "rateLimited": true,
     "dryRun": false,
     "notes": "Run #16 - 4 sporadic rejections, then 3 consecutive",
-    "dailyTotal": 151
+    "dailyTotal": 392
   },
   {
     "timestamp": "2026-01-23T04:02:13.522Z",
@@ -151,7 +151,7 @@
     "dryRun": false,
     "durationMs": 161679,
     "notes": "Run #17",
-    "dailyTotal": 258
+    "dailyTotal": 499
   },
   {
     "timestamp": "2026-01-23T05:36:10.648Z",
@@ -161,7 +161,7 @@
     "dryRun": false,
     "durationMs": 105996,
     "notes": "Run #18",
-    "dailyTotal": 306
+    "dailyTotal": 547
   },
   {
     "timestamp": "2026-01-23T05:47:07.417Z",
@@ -171,7 +171,7 @@
     "dryRun": false,
     "durationMs": 71209,
     "notes": "Run #19",
-    "dailyTotal": 310
+    "dailyTotal": 551
   },
   {
     "timestamp": "2026-01-23T06:12:56.076Z",
@@ -181,7 +181,7 @@
     "dryRun": false,
     "durationMs": 288217,
     "notes": "Run #20",
-    "dailyTotal": 448
+    "dailyTotal": 689
   },
   {
     "timestamp": "2026-01-23T07:00:10.308Z",
@@ -191,7 +191,7 @@
     "dryRun": false,
     "durationMs": 80695,
     "notes": "Run #21",
-    "dailyTotal": 479
+    "dailyTotal": 720
   },
   {
     "timestamp": "2026-01-24T03:52:45.657Z",
@@ -212,5 +212,35 @@
     "durationMs": 36686,
     "notes": "Run #23",
     "dailyTotal": 113
+  },
+  {
+    "timestamp": "2026-01-24T06:10:10.324Z",
+    "kudosGiven": 1,
+    "errors": 0,
+    "rateLimited": false,
+    "dryRun": false,
+    "durationMs": 91399,
+    "notes": "Run #24",
+    "dailyTotal": 114
+  },
+  {
+    "timestamp": "2026-01-24T06:12:38.628Z",
+    "kudosGiven": 2,
+    "errors": 0,
+    "rateLimited": false,
+    "dryRun": false,
+    "durationMs": 111070,
+    "notes": "Run #25",
+    "dailyTotal": 116
+  },
+  {
+    "timestamp": "2026-01-24T06:22:54.040Z",
+    "kudosGiven": 21,
+    "errors": 0,
+    "rateLimited": false,
+    "dryRun": false,
+    "durationMs": 578793,
+    "notes": "Run #26",
+    "dailyTotal": 137
   }
 ]

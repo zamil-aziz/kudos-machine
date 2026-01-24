@@ -1,12 +1,12 @@
 import * as adb from './adb';
 
 const STRAVA_PACKAGE = 'com.strava';
-const KUDOS_DELAY_MIN_MS = 1000;
-const KUDOS_DELAY_MAX_MS = 2500;
-const SCROLL_DELAY_MS = 400;
-const APP_LAUNCH_WAIT_MS = 3000;
-const NAV_DELAY_MS = 1500;
-const CLUB_LOAD_DELAY_MS = 2000;
+const KUDOS_DELAY_MIN_MS = 100;   // Minimal delay for speed
+const KUDOS_DELAY_MAX_MS = 300;   // Reduced max
+const SCROLL_DELAY_MS = 100;      // Faster scrolling
+const APP_LAUNCH_WAIT_MS = 2000;  // Reduced from 3000
+const NAV_DELAY_MS = 1200;        // Navigation needs more time
+const CLUB_LOAD_DELAY_MS = 1200;  // Club loading needs more time
 
 export interface MobileKudosResult {
   given: number;
@@ -240,53 +240,87 @@ async function tapClub(club: adb.UiElement): Promise<boolean> {
 }
 
 /**
- * Navigate to club's activity feed (Posts tab)
+ * Navigate to club's Activities tab (member workouts, not Posts)
+ *
+ * The club page has tabs with icons and text labels:
+ * - The icon (background_circle) is clickable, bounds around y=1193-1373
+ * - The text label is NOT clickable, bounds around y=1397-1444
+ * We need to tap the icon, not the text.
  */
 async function navigateToClubFeed(): Promise<boolean> {
-  console.log('Looking for Posts/Activities tab...');
+  console.log('Looking for Activities tab...');
   const elements = await adb.dumpUi();
 
-  // Look for Posts or Activities tab within club page
-  const feedTab = elements.find(el =>
-    (el.text.toLowerCase() === 'posts' ||
-     el.text.toLowerCase() === 'activities' ||
-     el.contentDesc.toLowerCase().includes('posts') ||
-     el.contentDesc.toLowerCase().includes('activities')) &&
-    el.clickable
-  );
+  // Find the "Activities" text label to locate the tab
+  const activitiesText = elements.find(el => el.text === 'Activities');
 
-  if (feedTab) {
-    await adb.tapElement(feedTab);
+  if (activitiesText) {
+    // The clickable icon is directly above the text at the same X position
+    // Icon bounds are approximately: same X center, but Y is ~200px higher
+    const textCenter = adb.getCenter(activitiesText);
+
+    // Find the clickable background_circle icon above the text
+    // It should have the same X center (within tolerance) and be above the text
+    const activitiesIcon = elements.find(el =>
+      el.resourceId === 'com.strava:id/background_circle' &&
+      el.clickable &&
+      Math.abs(adb.getCenter(el).x - textCenter.x) < 100 && // Same X column
+      el.bounds.y2 < activitiesText.bounds.y1 // Above the text
+    );
+
+    if (activitiesIcon) {
+      console.log('Found Activities icon, tapping...');
+      await adb.tapElement(activitiesIcon);
+      await adb.delay(NAV_DELAY_MS);
+      return true;
+    }
+
+    // Fallback: tap above the text label where the icon should be
+    // Icon center is typically ~150px above text center
+    const iconY = textCenter.y - 150;
+    console.log(`Activities icon not found, tapping above text at (${textCenter.x}, ${iconY})...`);
+    await adb.tap(textCenter.x, iconY);
     await adb.delay(NAV_DELAY_MS);
     return true;
   }
 
-  // If no explicit tab, we might already be on the feed
-  console.log('No explicit Posts tab found, assuming already on feed');
-  return true;
+  // If Activities text not found, the tab might be off-screen
+  console.log('Activities tab not visible, trying to scroll tab bar...');
+
+  // Tab bar is around y=1300, swipe left to reveal more tabs
+  await adb.swipe(1000, 1300, 300, 1300, 200);
+  await adb.delay(500);
+
+  // Try finding it again after scroll
+  const elementsAfterScroll = await adb.dumpUi();
+  const activitiesTextAfterScroll = elementsAfterScroll.find(el => el.text === 'Activities');
+
+  if (activitiesTextAfterScroll) {
+    const textCenter = adb.getCenter(activitiesTextAfterScroll);
+    const iconY = textCenter.y - 150;
+    console.log(`Found Activities after scroll, tapping at (${textCenter.x}, ${iconY})...`);
+    await adb.tap(textCenter.x, iconY);
+    await adb.delay(NAV_DELAY_MS);
+    return true;
+  }
+
+  console.log('WARNING: Could not find Activities tab');
+  return false;
 }
 
 /**
- * Press back button to return to previous screen
+ * Press back button to return to clubs list
+ * Need to press twice: once to exit current view, once to exit club
  */
 async function goBack(): Promise<void> {
-  console.log('Going back...');
-  const elements = await adb.dumpUi();
+  console.log('Going back to clubs list...');
 
-  // Look for "Navigate up" button (standard Android back in toolbar)
-  const backButton = elements.find(el =>
-    el.contentDesc.toLowerCase().includes('navigate up') ||
-    el.contentDesc.toLowerCase().includes('back') ||
-    el.resourceId.includes('back')
-  );
+  // First back: exits current view (activity detail, etc) to club page
+  await adb.shell('input keyevent KEYCODE_BACK');
+  await adb.delay(500);
 
-  if (backButton) {
-    await adb.tapElement(backButton);
-  } else {
-    // Fallback: use Android back gesture/button
-    await adb.shell('input keyevent KEYCODE_BACK');
-  }
-
+  // Second back: exits club page to clubs list
+  await adb.shell('input keyevent KEYCODE_BACK');
   await adb.delay(NAV_DELAY_MS);
 }
 
@@ -346,7 +380,7 @@ async function giveKudosOnCurrentFeed(
   dryRun: boolean
 ): Promise<FeedKudosState> {
   let noNewButtonsCount = 0;
-  const maxNoNewButtons = 3; // Stop after 3 scrolls with no new buttons
+  const maxNoNewButtons = 10; // Stop after 10 scrolls with no new buttons
 
   while (!state.rateLimited && state.given < maxKudos) {
     // Dump current UI
@@ -369,53 +403,48 @@ async function giveKudosOnCurrentFeed(
         break;
       }
 
-      // Try scrolling down to find more
-      console.log('No kudos buttons visible, scrolling...');
-      await adb.scrollDown(600);
-      await adb.delay(500);
+      // Small scroll to avoid missing activities (one activity height ~400px)
+      await adb.scrollDown(400, 100);
+      await adb.delay(80);
       continue;
     }
 
     noNewButtonsCount = 0;
 
-    // Take the first available button
-    const button = newButtons[0];
-    const posKey = `${button.bounds.x1},${button.bounds.y1}`;
-    state.processedPositions.add(posKey);
+    // Process ALL visible buttons before scrolling (reduces UI dump calls)
+    for (const button of newButtons) {
+      if (state.rateLimited || state.given >= maxKudos) break;
 
-    if (dryRun) {
-      console.log(`[DRY RUN] Would give kudos at (${adb.getCenter(button).x}, ${adb.getCenter(button).y})`);
-      state.given++;
-      continue;
-    }
+      const posKey = `${button.bounds.x1},${button.bounds.y1}`;
+      state.processedPositions.add(posKey);
 
-    // Attempt to give kudos
-    const success = await giveKudosToActivity(button);
-
-    if (success) {
-      state.given++;
-      state.consecutiveErrors = 0;
-      console.log(`✓ Gave kudos (${state.given})`);
-    } else {
-      state.consecutiveErrors++;
-      state.errors++;
-      console.log(`✗ Kudos may have been rejected (${state.consecutiveErrors} consecutive)`);
-
-      if (state.consecutiveErrors >= 3) {
-        console.log('⛔ 3 consecutive rejections - stopping (rate limited)');
-        state.rateLimited = true;
-        break;
+      if (dryRun) {
+        console.log(`[DRY RUN] Would give kudos at (${adb.getCenter(button).x}, ${adb.getCenter(button).y})`);
+        state.given++;
+        continue;
       }
-    }
 
-    // Randomized delay
-    await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
+      // Attempt to give kudos
+      const success = await giveKudosToActivity(button);
 
-    // Occasional longer pause
-    if (Math.random() < 0.1) {
-      const longPause = randomDelay(3000, 6000);
-      console.log(`  ☕ Taking a ${(longPause / 1000).toFixed(1)}s break...`);
-      await adb.delay(longPause);
+      if (success) {
+        state.given++;
+        state.consecutiveErrors = 0;
+        console.log(`✓ Gave kudos (${state.given})`);
+      } else {
+        state.consecutiveErrors++;
+        state.errors++;
+        console.log(`✗ Kudos may have been rejected (${state.consecutiveErrors} consecutive)`);
+
+        if (state.consecutiveErrors >= 3) {
+          console.log('⛔ 3 consecutive rejections - stopping (rate limited)');
+          state.rateLimited = true;
+          break;
+        }
+      }
+
+      // Brief delay between kudos
+      await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
     }
   }
 
@@ -515,10 +544,7 @@ export async function giveKudosMobile(
       // Navigate to the club's activity feed
       await navigateToClubFeed();
 
-      // Scroll to load content
-      await scrollFeed(15); // Fewer scrolls per club
-
-      // Give kudos on this club's feed
+      // Give kudos on this club's feed (scrolling happens inside)
       state = await giveKudosOnCurrentFeed(state, maxKudos, dryRun);
 
       if (state.rateLimited) {

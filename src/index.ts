@@ -102,7 +102,13 @@ async function main(): Promise<void> {
     console.log('\n' + '='.repeat(50));
     console.log(`Summary - ${endTime}`);
     console.log('='.repeat(50));
-    console.log(`  Kudos given: ${result.given}`);
+    if (browserResult.given > 0) {
+      console.log(`  Browser kudos: ${browserResult.given}`);
+    }
+    if (mobileResult.given > 0) {
+      console.log(`  Mobile kudos: ${mobileResult.given}`);
+    }
+    console.log(`  Total kudos: ${result.given}`);
     console.log(`  Daily total: ${dailyTotal}`);
     console.log(`  Errors: ${result.errors}`);
     console.log(`  Rate limited: ${result.rateLimited}`);

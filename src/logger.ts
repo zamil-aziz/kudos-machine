@@ -18,21 +18,21 @@ function getDailyTotal(logs: RunLog[], targetIndex: number): number {
   const targetLog = logs[targetIndex];
   const targetDate = new Date(targetLog.timestamp);
 
-  // Use UTC to get the day boundary
-  const dayStart = new Date(Date.UTC(
-    targetDate.getUTCFullYear(),
-    targetDate.getUTCMonth(),
-    targetDate.getUTCDate(),
+  // Use local time to get the day boundary
+  const dayStart = new Date(
+    targetDate.getFullYear(),
+    targetDate.getMonth(),
+    targetDate.getDate(),
     0, 0, 0, 0
-  ));
-  const dayEnd = new Date(Date.UTC(
-    targetDate.getUTCFullYear(),
-    targetDate.getUTCMonth(),
-    targetDate.getUTCDate() + 1,
+  );
+  const dayEnd = new Date(
+    targetDate.getFullYear(),
+    targetDate.getMonth(),
+    targetDate.getDate() + 1,
     0, 0, 0, 0
-  ));
+  );
 
-  // Sum all non-dry-run logs on the same UTC day, up to and including targetIndex
+  // Sum all non-dry-run logs on the same local day, up to and including targetIndex
   let total = 0;
   for (let i = 0; i <= targetIndex; i++) {
     const log = logs[i];

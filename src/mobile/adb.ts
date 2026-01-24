@@ -92,10 +92,12 @@ export async function swipe(
 
 /**
  * Scroll down on the screen
+ * Uses coordinates for 1344x2992 screen (center X = 672)
  */
-export async function scrollDown(distance: number = 500): Promise<void> {
+export async function scrollDown(distance: number = 500, durationMs: number = 100): Promise<void> {
   // Swipe from middle-bottom to middle-top
-  await swipe(540, 1500, 540, 1500 - distance, 300);
+  // Screen is 1344x2992, center X is 672, start from Y ~1800
+  await swipe(672, 1800, 672, 1800 - distance, durationMs);
 }
 
 /**
