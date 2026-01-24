@@ -6,7 +6,6 @@ export interface RunLog {
   kudosGiven: number;
   errors: number;
   rateLimited: boolean;
-  clubIds: string[];
   dryRun: boolean;
   durationMs: number;
   dailyTotal?: number;    // Cumulative kudos for the day (up to and including this run)

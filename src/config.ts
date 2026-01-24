@@ -18,7 +18,7 @@ export function loadConfig(): Config {
   const clubIdsEnv = process.env.CLUB_IDS;
   const clubIds = clubIdsEnv
     ? clubIdsEnv.split(',').map(id => id.trim()).filter(Boolean)
-    : ['117492', '470584', '150558', '470994', '485876', '286796', '206162', '529312', '277950', '1199487', '1116447', '949611', '163112', '721441', '1128193', '1524029', '722299'];
+    : ['117492', '206162', '529312', '277950', '1199487', '1116447', '722299', '470584', '150558', '470994', '485876', '286796', '949611', '163112', '721441', '1128193', '1524029'];
 
   let maxKudosPerRun = Infinity; // No limit - script stops when rate limited
   if (process.env.MAX_KUDOS_PER_RUN) {

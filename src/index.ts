@@ -48,7 +48,6 @@ async function main(): Promise<void> {
       kudosGiven: result.given,
       errors: result.errors,
       rateLimited: result.rateLimited,
-      clubIds,
       dryRun: config.dryRun,
       durationMs: Date.now() - startMs,
     });

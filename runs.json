@@ -4,7 +4,6 @@
     "kudosGiven": 78,
     "errors": 0,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #1 - Connection closed by Strava",
     "dailyTotal": 78
@@ -14,7 +13,6 @@
     "kudosGiven": 137,
     "errors": 3,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #2 (after 10 min) - 3 consecutive rejections",
     "dailyTotal": 215
@@ -24,7 +22,6 @@
     "kudosGiven": 26,
     "errors": 0,
     "rateLimited": false,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #3 (stale bug) - Killed manually - 50% lost to stale elements",
     "dailyTotal": 26
@@ -34,7 +31,6 @@
     "kudosGiven": 99,
     "errors": 3,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #4 (stale fix) - 3 consecutive rejections",
     "dailyTotal": 125
@@ -44,7 +40,6 @@
     "kudosGiven": 0,
     "errors": 0,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #5 - Immediate block",
     "dailyTotal": 125
@@ -54,7 +49,6 @@
     "kudosGiven": 11,
     "errors": 0,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #6 - Partial recovery - sliding window",
     "dailyTotal": 136
@@ -64,9 +58,6 @@
     "kudosGiven": 0,
     "errors": 0,
     "rateLimited": true,
-    "clubIds": [
-      "470584"
-    ],
     "dryRun": false,
     "notes": "Run #7 - Immediate block (club 470584)",
     "dailyTotal": 0
@@ -76,7 +67,6 @@
     "kudosGiven": 96,
     "errors": 0,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #8 - Switched club, worked until ~100 limit",
     "dailyTotal": 96
@@ -86,7 +76,6 @@
     "kudosGiven": 0,
     "errors": 0,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #9 - Blocked (1hr after #8)",
     "dailyTotal": 96
@@ -96,7 +85,6 @@
     "kudosGiven": 0,
     "errors": 0,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #10 - Club-switch didn't help this time",
     "dailyTotal": 96
@@ -106,7 +94,6 @@
     "kudosGiven": 87,
     "errors": 0,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #11 - Recovered after longer wait",
     "dailyTotal": 183
@@ -116,7 +103,6 @@
     "kudosGiven": 97,
     "errors": 5,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #12 - 2 sporadic rejections mid-run, recovered, then 3 consecutive",
     "dailyTotal": 280
@@ -126,7 +112,6 @@
     "kudosGiven": 16,
     "errors": 9,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #13 (random delays) - 6 sporadic rejections, then 3 consecutive",
     "dailyTotal": 296
@@ -136,7 +121,6 @@
     "kudosGiven": 98,
     "errors": 4,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #14 - 1 sporadic rejection, recovered, then 3 consecutive",
     "dailyTotal": 394
@@ -146,7 +130,6 @@
     "kudosGiven": 30,
     "errors": 3,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #15 - 3 consecutive rejections at #31",
     "dailyTotal": 424
@@ -156,7 +139,6 @@
     "kudosGiven": 151,
     "errors": 7,
     "rateLimited": true,
-    "clubIds": [],
     "dryRun": false,
     "notes": "Run #16 - 4 sporadic rejections, then 3 consecutive",
     "dailyTotal": 151
@@ -166,11 +148,6 @@
     "kudosGiven": 107,
     "errors": 3,
     "rateLimited": true,
-    "clubIds": [
-      "117492",
-      "470994",
-      "470584"
-    ],
     "dryRun": false,
     "durationMs": 161679,
     "notes": "Run #17",
@@ -181,11 +158,6 @@
     "kudosGiven": 48,
     "errors": 0,
     "rateLimited": false,
-    "clubIds": [
-      "117492",
-      "470994",
-      "470584"
-    ],
     "dryRun": false,
     "durationMs": 105996,
     "notes": "Run #18",
@@ -196,12 +168,6 @@
     "kudosGiven": 4,
     "errors": 0,
     "rateLimited": false,
-    "clubIds": [
-      "231407",
-      "117492",
-      "470584",
-      "470994"
-    ],
     "dryRun": false,
     "durationMs": 71209,
     "notes": "Run #19",
@@ -212,16 +178,19 @@
     "kudosGiven": 138,
     "errors": 0,
     "rateLimited": false,
-    "clubIds": [
-      "117492",
-      "722299",
-      "150558",
-      "470584",
-      "470994"
-    ],
     "dryRun": false,
     "durationMs": 288217,
     "notes": "Run #20",
     "dailyTotal": 448
+  },
+  {
+    "timestamp": "2026-01-23T07:00:10.308Z",
+    "kudosGiven": 31,
+    "errors": 3,
+    "rateLimited": true,
+    "dryRun": false,
+    "durationMs": 80695,
+    "notes": "Run #21",
+    "dailyTotal": 479
   }
 ]
