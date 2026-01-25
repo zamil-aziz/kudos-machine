@@ -59,7 +59,16 @@ async function main(): Promise<void> {
       (browserResult.rateLimited && !config.skipMobile);
 
     if (shouldRunMobile) {
-      if (isMobileAvailable()) {
+      let mobileReady = isMobileAvailable();
+
+      // Auto-start emulator if not running
+      if (!mobileReady) {
+        console.log('\n📱 No emulator detected, attempting to start...');
+        const { startEmulator } = await import('./mobile/adb');
+        mobileReady = await startEmulator();
+      }
+
+      if (mobileReady) {
         if (config.mobileOnly) {
           console.log('\n📱 Running in mobile-only mode...');
         } else {
@@ -72,8 +81,8 @@ async function main(): Promise<void> {
 
         mobileResult = await giveKudosMobile(remainingKudos, config.dryRun);
       } else {
-        console.log('\n📱 Mobile automation unavailable (no emulator detected)');
-        console.log('   To enable: start an Android emulator with Strava installed');
+        console.log('\n📱 Mobile automation unavailable (emulator failed to start)');
+        console.log('   Tip: Run `emulator -list-avds` to see available emulators');
         if (config.mobileOnly) {
           throw new Error('Mobile-only mode requested but no emulator available');
         }

@@ -1,11 +1,12 @@
-import { execSync, exec } from 'child_process';
+import { execSync, exec, spawn } from 'child_process';
 import { promisify } from 'util';
-import { writeFileSync, readFileSync, unlinkSync } from 'fs';
+import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 
 const execAsync = promisify(exec);
 
-const ADB_TIMEOUT_MS = 10000;
+const ADB_TIMEOUT_MS = 5000;  // Fast fail for video content
 
 export interface DeviceInfo {
   id: string;
@@ -59,6 +60,119 @@ export function listDevices(): DeviceInfo[] {
 export function isEmulatorReady(): boolean {
   const devices = listDevices();
   return devices.some(d => d.state === 'device' && d.id.includes('emulator'));
+}
+
+/**
+ * Find the Android emulator binary path
+ * Checks ANDROID_HOME, ANDROID_SDK_ROOT, and common installation locations
+ */
+function findEmulatorPath(): string | null {
+  // Check environment variables first
+  const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  if (androidHome) {
+    const emulatorPath = join(androidHome, 'emulator', 'emulator');
+    if (existsSync(emulatorPath)) return emulatorPath;
+  }
+
+  // Common macOS location (Android Studio default)
+  const macPath = join(homedir(), 'Library', 'Android', 'sdk', 'emulator', 'emulator');
+  if (existsSync(macPath)) return macPath;
+
+  // Common Linux locations
+  const linuxPaths = [
+    join(homedir(), 'Android', 'Sdk', 'emulator', 'emulator'),
+    '/usr/local/share/android-sdk/emulator/emulator',
+  ];
+  for (const p of linuxPaths) {
+    if (existsSync(p)) return p;
+  }
+
+  return null;
+}
+
+/**
+ * Set the emulator window position before starting
+ * Modifies the emulator-user.ini file for the specified AVD
+ */
+function setEmulatorWindowPosition(avdName: string, x: number, y: number): void {
+  const iniPath = join(homedir(), '.android', 'avd', `${avdName}.avd`, 'emulator-user.ini');
+
+  if (!existsSync(iniPath)) {
+    // Create the file if it doesn't exist
+    writeFileSync(iniPath, `window.x = ${x}\nwindow.y = ${y}\n`);
+    return;
+  }
+
+  let content = readFileSync(iniPath, 'utf-8');
+
+  // Update or add window.x
+  if (content.includes('window.x')) {
+    content = content.replace(/window\.x\s*=\s*\d+/, `window.x = ${x}`);
+  } else {
+    content += `\nwindow.x = ${x}`;
+  }
+
+  // Update or add window.y
+  if (content.includes('window.y')) {
+    content = content.replace(/window\.y\s*=\s*\d+/, `window.y = ${y}`);
+  } else {
+    content += `\nwindow.y = ${y}`;
+  }
+
+  writeFileSync(iniPath, content);
+}
+
+/**
+ * Start an Android emulator by AVD name
+ * Returns true if started successfully
+ */
+export async function startEmulator(avdName: string = 'Pixel_8_Pro'): Promise<boolean> {
+  const emulatorPath = findEmulatorPath();
+  if (!emulatorPath) {
+    console.error('Could not find Android emulator. Set ANDROID_HOME or install Android Studio.');
+    return false;
+  }
+
+  console.log(`Starting emulator: ${avdName}...`);
+
+  // Position window on right side of screen (x=2400 for ~3024px wide screen)
+  setEmulatorWindowPosition(avdName, 2400, 100);
+
+  // Start emulator in background (detached)
+  const child = spawn(emulatorPath, ['-avd', avdName], {
+    detached: true,
+    stdio: 'ignore'
+  });
+  child.unref();
+
+  // Wait for emulator to boot (poll for boot_completed)
+  const maxWaitMs = 120000; // 2 minutes max
+  const pollInterval = 3000;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWaitMs) {
+    await delay(pollInterval);
+
+    // Check if device is connected
+    if (!isEmulatorReady()) continue;
+
+    // Check if boot completed
+    try {
+      const bootStatus = execSync('adb shell getprop sys.boot_completed', {
+        encoding: 'utf-8',
+        stdio: 'pipe'
+      }).trim();
+      if (bootStatus === '1') {
+        console.log('Emulator booted successfully');
+        return true;
+      }
+    } catch {
+      // Device not ready yet
+    }
+  }
+
+  console.error('Emulator failed to boot within timeout');
+  return false;
 }
 
 /**
@@ -132,7 +246,7 @@ export async function dumpUi(): Promise<UiElement[]> {
   const localFile = join(process.cwd(), '.tmp_ui_dump.xml');
 
   const maxRetries = 3;
-  const retryDelayMs = 2000;
+  const retryDelayMs = 500;  // Fast retry for video content
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -284,4 +398,18 @@ export async function disableAnimations(): Promise<void> {
   await shell('settings put global window_animation_scale 0');
   await shell('settings put global transition_animation_scale 0');
   await shell('settings put global animator_duration_scale 0');
+}
+
+/**
+ * Kill the running emulator
+ */
+export async function killEmulator(): Promise<void> {
+  try {
+    execSync('adb emu kill', { stdio: 'pipe' });
+    console.log('Emulator killed');
+    // Wait for emulator process to fully terminate
+    await delay(3000);
+  } catch {
+    // Emulator may already be dead
+  }
 }

@@ -7,11 +7,14 @@ const SCROLL_DELAY_MS = 30;       // Fire-and-forget: faster scrolling
 const APP_LAUNCH_WAIT_MS = 800;   // Fire-and-forget: slightly faster
 const NAV_DELAY_MS = 400;         // Fire-and-forget: faster nav
 const CLUB_LOAD_DELAY_MS = 400;   // Fire-and-forget: faster club load
+const KUDOS_PER_SESSION = 100;    // Restart emulator after this many kudos to reset rate limit
 
 // Safe Y range for kudos buttons (avoid header and bottom nav)
 // Screen is 2992 height - stay in the middle area
 const SAFE_Y_MIN = 500;   // Below header/toolbar area
 const SAFE_Y_MAX = 2700;  // Above bottom navigation
+
+export { startEmulator, killEmulator } from './adb';
 
 export interface MobileKudosResult {
   given: number;
@@ -426,13 +429,25 @@ async function giveKudosOnCurrentFeed(
   const maxNoNewButtons = 8; // Reduced from 10 - exit faster
 
   while (!state.rateLimited && state.given < maxKudos) {
-    // Single dumpUi to find buttons
-    let elements: adb.UiElement[];
-    try {
-      elements = await adb.dumpUi();
-    } catch (error) {
-      console.log(`\n⚠ UI dump failed, stopping (${state.given} kudos tapped)`);
-      break;
+    // Dump UI with scroll-on-failure retry (handles media-heavy screens)
+    let elements: adb.UiElement[] = [];
+    let dumpRetries = 0;
+    const maxDumpRetries = 3;
+
+    while (dumpRetries < maxDumpRetries) {
+      try {
+        elements = await adb.dumpUi();
+        break;  // Success, exit retry loop
+      } catch (error) {
+        dumpRetries++;
+        if (dumpRetries >= maxDumpRetries) {
+          console.log(`\n⚠ UI dump failed after ${maxDumpRetries} retries, stopping (${state.given} kudos tapped)`);
+          return state;  // Exit function entirely
+        }
+        console.log(`⚠ UI dump failed, scrolling past media content (attempt ${dumpRetries}/${maxDumpRetries})...`);
+        await adb.scrollDown(600, 100);  // Scroll past problematic content
+        await adb.delay(500);  // Wait for scroll to settle
+      }
     }
 
     // Check for unexpected navigation
@@ -504,13 +519,17 @@ export async function giveKudosMobile(
   console.log('Mobile Kudos Automation');
   console.log('='.repeat(50));
 
-  // Check if emulator is ready
+  // Check if emulator is ready, start it if not
   if (!adb.isEmulatorReady()) {
-    console.error('No Android emulator detected. Please start an emulator first.');
-    console.log('Tip: Run `emulator -list-avds` to see available emulators');
-    console.log('     Then `emulator -avd <name>` to start one');
-    result.errors = 1;
-    return result;
+    console.log('No emulator running, attempting to start...');
+    const started = await adb.startEmulator();
+    if (!started) {
+      console.error('Failed to start emulator automatically');
+      console.log('Tip: Run `emulator -list-avds` to see available emulators');
+      console.log('     Then `emulator -avd <name>` to start one manually');
+      result.errors = 1;
+      return result;
+    }
   }
 
   const devices = adb.listDevices();
@@ -592,6 +611,34 @@ export async function giveKudosMobile(
       if (state.rateLimited) {
         console.log('Rate limited, stopping club iteration');
         break;
+      }
+
+      // Check if we should restart emulator to reset rate limit bucket
+      if (state.given > 0 && state.given % KUDOS_PER_SESSION === 0) {
+        console.log(`\n🔄 Reached ${KUDOS_PER_SESSION} kudos, restarting emulator to reset rate limit...`);
+        await adb.killEmulator();
+        const restarted = await adb.startEmulator();
+        if (!restarted) {
+          console.error('Failed to restart emulator');
+          break;
+        }
+        // Re-setup: disable animations, launch Strava, navigate to clubs
+        await adb.disableAnimations();
+        const relaunched = await launchStrava();
+        if (!relaunched) {
+          console.error('Failed to relaunch Strava after restart');
+          break;
+        }
+        await adb.delay(APP_LAUNCH_WAIT_MS);
+        await navigateToGroupsTab();
+        await navigateToClubsTab();
+        clubs = await getClubsList();
+        state.processedPositions.clear();
+        // Reset club index to start from first club again
+        clubIndex = -1; // Will be incremented to 0 at loop start
+        processedClubs.clear();
+        console.log(`Emulator restarted, continuing from ${state.given} kudos...`);
+        continue;
       }
 
       // Go back to clubs list
