@@ -508,32 +508,37 @@ async function giveKudosOnCurrentFeed(
           continue;
         }
 
-        // Tap the button
-        await giveKudosToActivity(button);
+        // Retry tapping the same button up to 3 times
+        let success = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          // Tap the button
+          await giveKudosToActivity(button);
 
-        // Brief delay for UI to update
-        await adb.delay(200);
+          // Brief delay for UI to update
+          await adb.delay(300);
 
-        // Verify the tap worked
-        const success = await verifyKudosTap(center.y);
+          // Verify the tap worked
+          success = await verifyKudosTap(center.y);
 
-        if (success) {
-          state.given++;
-          state.consecutiveErrors = 0;
-          console.log(`✓ Kudos verified (${state.given})`);
-        } else {
-          state.consecutiveErrors++;
-          state.errors++;
-          console.log(`✗ Kudos rejected (${state.consecutiveErrors} consecutive)`);
-
-          if (state.consecutiveErrors >= 3) {
-            console.log(`⛔ Rate limited - 3 consecutive rejections`);
-            state.rateLimited = true;
+          if (success) {
+            state.given++;
+            state.consecutiveErrors = 0;
+            console.log(`✓ Kudos verified (${state.given})`);
             break;
+          } else if (attempt < 3) {
+            console.log(`⚠ Tap attempt ${attempt} failed, retrying...`);
+            await adb.delay(200);
           }
         }
 
-        // Brief delay between taps
+        if (!success) {
+          state.errors++;
+          console.log(`⛔ Rate limited - button failed after 3 tap attempts`);
+          state.rateLimited = true;
+          break;
+        }
+
+        // Brief delay between buttons
         await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
       }
     }
