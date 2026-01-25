@@ -68,10 +68,6 @@ Strava limits kudos to ~100 per burst. See [CLAUDE.md](CLAUDE.md) for detailed f
 
 The session cookie expires every 1-2 weeks. When it expires, you'll see "Session expired" in the output. Just grab a fresh cookie from your browser.
 
-## Disclaimer
-
-This tool violates Strava's Terms of Service. Use at your own risk.
-
 ## License
 
 MIT
