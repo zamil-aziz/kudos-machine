@@ -5,6 +5,7 @@ const KUDOS_DELAY_MAX_MS = 2500;
 const MAX_KUDOS_PER_CLUB = 100; // Strava limit is ~100 per 10 minutes
 const SCROLL_DELAY_MS = 400;
 const PAGE_LOAD_DELAY_MS = 2000;
+const POST_LIMIT_COOLDOWN_MS = 20000; // 20s recovery after hitting per-club limit
 
 function randomDelay(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -60,6 +61,7 @@ export interface KudosResult {
   given: number;
   errors: number;
   rateLimited: boolean;
+  hitClubLimit: boolean;
 }
 
 function getFeedUrl(clubId?: string): string {
@@ -115,7 +117,7 @@ export async function giveKudos(
   maxKudos: number,
   dryRun: boolean
 ): Promise<KudosResult> {
-  const result: KudosResult = { given: 0, errors: 0, rateLimited: false };
+  const result: KudosResult = { given: 0, errors: 0, rateLimited: false, hitClubLimit: false };
 
   const feedUrl = getFeedUrl(clubId);
   const feedName = clubId ? `club ${clubId}` : 'main feed';
@@ -130,6 +132,10 @@ export async function giveKudos(
     if (errorMsg.includes('ERR_CONNECTION') || errorMsg.includes('net::')) {
       console.log('⚠️  Connection closed by Strava - likely hit their limit');
       result.rateLimited = true;
+      return result;
+    }
+    if (errorMsg.includes('Timeout') || errorMsg.includes('timeout')) {
+      console.log(`⚠️  Page load timed out for ${feedName} - skipping to next club`);
       return result;
     }
     throw error;
@@ -166,6 +172,7 @@ export async function giveKudos(
 
     if (result.given >= MAX_KUDOS_PER_CLUB) {
       console.log(`Reached per-club limit (${MAX_KUDOS_PER_CLUB}) - moving to next club`);
+      result.hitClubLimit = true;
       break;
     }
 
@@ -228,8 +235,8 @@ export async function giveKudos(
       // Randomized delay between kudos to mimic human behavior
       await page.waitForTimeout(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
 
-      // 10% chance of a longer pause to appear more human
-      if (Math.random() < 0.1) {
+      // 15% chance of a longer pause to appear more human
+      if (Math.random() < 0.15) {
         const longPause = randomDelay(3000, 6000);
         console.log(`  ☕ Taking a ${(longPause/1000).toFixed(1)}s break...`);
         await page.waitForTimeout(longPause);
@@ -255,7 +262,7 @@ export async function giveKudosToAllFeeds(
   maxKudos: number,
   dryRun: boolean
 ): Promise<KudosResult> {
-  const totalResult: KudosResult = { given: 0, errors: 0, rateLimited: false };
+  const totalResult: KudosResult = { given: 0, errors: 0, rateLimited: false, hitClubLimit: false };
   let remainingKudos = maxKudos;
 
   // If no club IDs specified, just process the main feed
@@ -281,9 +288,19 @@ export async function giveKudosToAllFeeds(
       break;
     }
 
-    // Wait between clubs (longer delay to avoid rate limiting)
+    // Wait between clubs with adaptive delay based on kudos given
     if (clubIds.length > 1) {
-      const clubDelay = randomDelay(4000, 8000);
+      // Base delay + 100ms per kudos given (more kudos = more recovery needed)
+      const baseDelay = randomDelay(4000, 8000);
+      const kudosBonus = result.given * 100; // +100ms per kudos
+      let clubDelay = baseDelay + kudosBonus;
+
+      // Extra 20s cooldown if we hit the per-club limit
+      if (result.hitClubLimit) {
+        console.log(`  💤 Hit per-club limit, adding ${POST_LIMIT_COOLDOWN_MS/1000}s cooldown...`);
+        clubDelay += POST_LIMIT_COOLDOWN_MS;
+      }
+
       console.log(`Waiting ${(clubDelay/1000).toFixed(1)}s before next club...`);
       await page.waitForTimeout(clubDelay);
     }

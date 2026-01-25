@@ -8,8 +8,10 @@ Based on testing, here's what we learned about Strava's rate limits:
 
 | Type | Limit | What happens |
 |------|-------|--------------|
+| **Per-club limit** | ~100 kudos | Hard cap per club, then moves to next |
 | **Burst limit (no delays)** | ~100 kudos | 3 consecutive rejections |
-| **Burst limit (with delays)** | 130+ kudos | Sporadic rejections, recovers |
+| **Burst limit (with delays)** | ~130 kudos | Sporadic rejections, recovers |
+| **Per-run limit** | **None** | Depends on recovery time between clubs |
 | **Recovery** | Sliding window | Partial recovery over time (not hard reset) |
 | **Daily cap** | ~750-800 kudos | Cumulative limit, severely reduced recovery |
 
@@ -46,6 +48,33 @@ The delays allow Strava's rate limiter to "reset" between kudos, turning the har
 - Rate limit is account-wide, not per-club
 - Recovery requires time, not just club changes
 
+### Multi-Club Architecture (Jan 25 Discovery)
+
+Run #31 achieved **284 kudos** (272 browser + 12 mobile) by processing 17 clubs sequentially. Key findings:
+
+| Club | Kudos | Outcome |
+|------|-------|---------|
+| 117492 | 100 | Hit per-club limit |
+| 206162 etc | 0 | Page load timeouts |
+| 1116447 | 76 | Ran out of activities |
+| 722299 etc | 0 | Page load timeouts |
+| 163112 | 96 | 3 consecutive = stop |
+
+**The "Accidental Cooldown" Effect:**
+- Page load timeouts (30s each) act as unintended recovery periods
+- 11 clubs timed out = ~5+ minutes of implicit recovery
+- Strava's sliding window rate limiter refills during these pauses
+- Result: 2-3x more kudos than single-club runs
+
+**Pattern:**
+```
+Club 1: 100 kudos → hit limit → move on
+[timeouts = recovery time]
+Club N: more kudos available
+```
+
+**Takeaway:** Don't "fix" page load timeouts - they're actually helping throughput by giving the rate limiter time to recover between active clubs.
+
 ### Cumulative Limit Evidence
 
 Run #15 revealed a daily cumulative limit:
@@ -58,9 +87,19 @@ Run #15 revealed a daily cumulative limit:
 ### Safe Operating Guidelines
 
 - **Default limit:** None (runs until rate limited)
-- **Burst limit:** ~130+ kudos per run (with delays enabled)
+- **Per-club limit:** ~100 kudos before moving to next club
+- **Burst limit:** ~130 kudos per burst (with delays enabled)
+- **Per-run potential:** 200-300+ kudos with multi-club + recovery time
 - **Between runs:** Wait 2+ hours for full recovery (1 hour may not be enough)
 - **Daily potential:** ~500+ kudos reliably with delays
+
+### Historical Runs
+
+| Run | Kudos | Pattern |
+|-----|-------|---------|
+| #20 | 138 | Single club, delays working well |
+| #28 | 163 | Multi-club success |
+| #31 | 284 | Multi-club + timeouts = extra recovery |
 
 ### Cookie Notes
 
@@ -93,9 +132,9 @@ STRAVA_SESSION="your_cookie" npm start
 ## Mobile Automation Setup
 
 The script supports dual-platform automation to maximize daily kudos:
-- **Browser (Playwright):** ~130 kudos per rate limit bucket
+- **Browser (Playwright):** 200-300+ kudos with multi-club + recovery time
 - **Mobile (Android Emulator):** ~130 kudos per rate limit bucket
-- **Combined:** ~260+ kudos per day
+- **Combined:** ~300-400+ kudos per run
 
 ### Prerequisites
 
