@@ -8,6 +8,11 @@ const APP_LAUNCH_WAIT_MS = 2000;  // Reduced from 3000
 const NAV_DELAY_MS = 1200;        // Navigation needs more time
 const CLUB_LOAD_DELAY_MS = 1200;  // Club loading needs more time
 
+// Safe Y range for kudos buttons (avoid header and bottom nav)
+// Screen is 2992 height - stay in the middle area
+const SAFE_Y_MIN = 500;   // Below header/toolbar area
+const SAFE_Y_MAX = 2700;  // Above bottom navigation
+
 export interface MobileKudosResult {
   given: number;
   errors: number;
@@ -62,21 +67,35 @@ async function launchStrava(): Promise<boolean> {
 /**
  * Find kudos buttons in the current UI
  * Strava mobile uses content-desc="Give Kudos" for unfilled buttons
+ *
+ * Filters out Post kudos buttons by detecting nearby "gave kudos" text.
+ * Posts show "X gave kudos" (e.g., "356 gave kudos") near the kudos button,
+ * while Activities don't have this text pattern.
  */
 function findKudosButtons(elements: adb.UiElement[]): adb.UiElement[] {
-  return elements.filter(el => {
+  // NOTE: Post detection filter DISABLED - was incorrectly filtering activities
+  // The "X gave kudos" text appears on BOTH posts AND activities (showing kudos count).
+  // Since we navigate to the Activities tab, everything there should be an activity.
+  // Old filter used 200px threshold but activities have this text ~98px away.
+
+  const result: adb.UiElement[] = [];
+
+  for (const el of elements) {
     // Primary: content-desc = "Give Kudos" (exact match for unfilled)
-    if (el.contentDesc === 'Give Kudos') return true;
+    if (el.contentDesc === 'Give Kudos') {
+      result.push(el);
+      continue;
+    }
 
     // Secondary: resource-id icon_1 that's clickable (but not already given)
     if (el.resourceId === 'com.strava:id/icon_1' &&
         el.clickable &&
         el.contentDesc !== 'Kudos Given') {
-      return true;
+      result.push(el);
     }
+  }
 
-    return false;
-  });
+  return result;
 }
 
 /**
@@ -85,6 +104,62 @@ function findKudosButtons(elements: adb.UiElement[]): adb.UiElement[] {
  */
 function isUnfilledKudos(el: adb.UiElement): boolean {
   return el.contentDesc === 'Give Kudos';
+}
+
+/**
+ * Check if a kudos button is in a safe Y range (not near header/footer)
+ * This prevents accidental taps on overlapping UI elements
+ */
+function isInSafeYRange(el: adb.UiElement): boolean {
+  const center = adb.getCenter(el);
+  return center.y >= SAFE_Y_MIN && center.y <= SAFE_Y_MAX;
+}
+
+/**
+ * Check if we're on a post detail page (accidentally navigated there)
+ * Post detail pages have a "Post" title in the header
+ */
+function isOnPostDetailPage(elements: adb.UiElement[]): boolean {
+  return elements.some(el =>
+    el.text === 'Post' &&
+    el.bounds.y1 < 400  // In the header area
+  );
+}
+
+/**
+ * Escape from unexpected views (post detail, activity detail, etc.)
+ * Press back until we're on a recognizable screen
+ */
+async function escapeToSafeView(maxBackPresses: number = 3): Promise<void> {
+  for (let i = 0; i < maxBackPresses; i++) {
+    const elements = await adb.dumpUi();
+
+    // Check if we're on post detail page
+    if (isOnPostDetailPage(elements)) {
+      console.log('Detected post detail page, pressing back...');
+      await adb.shell('input keyevent KEYCODE_BACK');
+      await adb.delay(500);
+      continue;
+    }
+
+    // Check if we're on a recognizable screen (has Groups tab or club titles)
+    const hasGroupsTab = elements.some(el => el.contentDesc === 'Groups');
+    const hasClubTitles = elements.some(el =>
+      el.resourceId === 'com.strava:id/title' &&
+      el.text && el.text.length > 0
+    );
+    const hasActivitiesTab = elements.some(el => el.text === 'Activities');
+
+    if (hasGroupsTab || hasClubTitles || hasActivitiesTab) {
+      // We're on a safe screen
+      return;
+    }
+
+    // Unknown screen, try pressing back
+    console.log('On unknown screen, pressing back...');
+    await adb.shell('input keyevent KEYCODE_BACK');
+    await adb.delay(500);
+  }
 }
 
 /**
@@ -331,6 +406,35 @@ async function giveKudosToActivity(button: adb.UiElement): Promise<void> {
   await adb.tapElement(button);
 }
 
+/**
+ * Verify a kudos tap succeeded by re-dumping UI and checking button state
+ * Returns true if button changed to "Kudos Given", false if still "Give Kudos"
+ */
+async function verifyKudosTap(expectedY: number, tolerance: number = 100): Promise<boolean> {
+  const elements = await adb.dumpUi();
+
+  // Look for a "Kudos Given" button near where we tapped
+  const filledButtons = elements.filter(el => el.contentDesc === 'Kudos Given');
+  for (const btn of filledButtons) {
+    const y = adb.getCenter(btn).y;
+    if (Math.abs(y - expectedY) < tolerance) {
+      return true; // Found filled button near tap location
+    }
+  }
+
+  // Check if "Give Kudos" button still exists at that position (tap failed)
+  const unfilledButtons = elements.filter(el => el.contentDesc === 'Give Kudos');
+  for (const btn of unfilledButtons) {
+    const y = adb.getCenter(btn).y;
+    if (Math.abs(y - expectedY) < tolerance) {
+      return false; // Button still unfilled = tap rejected
+    }
+  }
+
+  // Button scrolled away or not found - assume success (optimistic)
+  return true;
+}
+
 interface FeedKudosState {
   given: number;
   errors: number;
@@ -340,9 +444,9 @@ interface FeedKudosState {
 }
 
 /**
- * Give kudos on the current feed/screen using batch processing
- * Taps all visible buttons quickly with deferred rate limit detection
- * (detects failures on next iteration when previously-tapped buttons are still unfilled)
+ * Give kudos on the current feed/screen with verification
+ * Taps each button and verifies it worked before moving on.
+ * Detects rate limiting via 3 consecutive failed taps.
  */
 async function giveKudosOnCurrentFeed(
   state: FeedKudosState,
@@ -362,41 +466,23 @@ async function giveKudosOnCurrentFeed(
       break;
     }
 
-    // Find kudos buttons (findKudosButtons already filters for unfilled)
-    const kudosButtons = findKudosButtons(elements)
-      .filter(el => isUnfilledKudos(el));
+    // Check if we accidentally navigated to a post detail page
+    if (isOnPostDetailPage(elements)) {
+      console.log('⚠ Accidentally on post detail page, escaping...');
+      await escapeToSafeView();
+      continue;  // Re-dump UI after escaping
+    }
+
+    // Find kudos buttons
+    const allKudosButtons = findKudosButtons(elements);
+    const unfilledButtons = allKudosButtons.filter(el => isUnfilledKudos(el));
+    const safeRangeButtons = unfilledButtons.filter(el => isInSafeYRange(el));
 
     // Filter out already processed positions
-    const newButtons = kudosButtons.filter(el => {
+    const newButtons = safeRangeButtons.filter(el => {
       const posKey = `${el.bounds.x1},${el.bounds.y1}`;
       return !state.processedPositions.has(posKey);
     });
-
-    // DEFERRED RATE LIMIT DETECTION: Check if previously tapped buttons are still unfilled
-    // If buttons we tapped before are still showing "Give Kudos", our taps failed
-    if (!dryRun && state.processedPositions.size > 0) {
-      const stillUnfilledFromPrevious = kudosButtons.filter(el => {
-        const posKey = `${el.bounds.x1},${el.bounds.y1}`;
-        return state.processedPositions.has(posKey);
-      });
-
-      if (stillUnfilledFromPrevious.length >= 3) {
-        console.log(`⛔ ${stillUnfilledFromPrevious.length} previous kudos still unfilled - rate limited`);
-        state.rateLimited = true;
-        state.errors += stillUnfilledFromPrevious.length;
-        state.given -= stillUnfilledFromPrevious.length;
-        break;
-      } else if (stillUnfilledFromPrevious.length > 0) {
-        console.log(`⚠ ${stillUnfilledFromPrevious.length} previous kudos may have failed (sporadic)`);
-        state.errors += stillUnfilledFromPrevious.length;
-        state.given -= stillUnfilledFromPrevious.length;
-        // Remove from processedPositions so we don't double-count on next iteration
-        for (const el of stillUnfilledFromPrevious) {
-          const posKey = `${el.bounds.x1},${el.bounds.y1}`;
-          state.processedPositions.delete(posKey);
-        }
-      }
-    }
 
     if (newButtons.length === 0) {
       noNewButtonsCount++;
@@ -407,30 +493,52 @@ async function giveKudosOnCurrentFeed(
     } else {
       noNewButtonsCount = 0;
 
-      // BATCH TAP: Tap all visible buttons quickly
+      // VERIFIED TAPS: Tap each button and verify it worked
       for (const button of newButtons) {
         if (state.given >= maxKudos) break;
+        if (state.rateLimited) break;
 
+        const center = adb.getCenter(button);
         const posKey = `${button.bounds.x1},${button.bounds.y1}`;
         state.processedPositions.add(posKey);
 
         if (dryRun) {
-          console.log(`[DRY RUN] Would give kudos at (${adb.getCenter(button).x}, ${adb.getCenter(button).y})`);
+          console.log(`[DRY RUN] Would give kudos at y=${center.y}`);
           state.given++;
           continue;
         }
 
-        // Tap without waiting for verification
+        // Tap the button
         await giveKudosToActivity(button);
-        state.given++;
-        console.log(`✓ Tapped kudos (${state.given})`);
+
+        // Brief delay for UI to update
+        await adb.delay(200);
+
+        // Verify the tap worked
+        const success = await verifyKudosTap(center.y);
+
+        if (success) {
+          state.given++;
+          state.consecutiveErrors = 0;
+          console.log(`✓ Kudos verified (${state.given})`);
+        } else {
+          state.consecutiveErrors++;
+          state.errors++;
+          console.log(`✗ Kudos rejected (${state.consecutiveErrors} consecutive)`);
+
+          if (state.consecutiveErrors >= 3) {
+            console.log(`⛔ Rate limited - 3 consecutive rejections`);
+            state.rateLimited = true;
+            break;
+          }
+        }
 
         // Brief delay between taps
         await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
       }
     }
 
-    // Always scroll after processing to load new content for next dumpUi
+    // Only scroll after processing all visible buttons
     await adb.scrollDown(400, 100);
     await adb.delay(80);
   }
@@ -552,10 +660,21 @@ export async function giveKudosMobile(
 
       // If we got kicked back too far, re-navigate
       if (clubs.length === 0) {
-        console.log('Lost clubs list, re-navigating...');
+        console.log('Lost clubs list, attempting recovery...');
+
+        // First, escape any unexpected views (post detail, etc.)
+        await escapeToSafeView();
+
+        // Then try to navigate back to clubs
         await navigateToGroupsTab();
         await navigateToClubsTab();
         clubs = await getClubsList();
+
+        // If still no clubs, we're stuck - stop processing
+        if (clubs.length === 0) {
+          console.log('⚠ Could not recover clubs list, stopping');
+          break;
+        }
       }
     }
   }
