@@ -135,8 +135,8 @@ export async function startEmulator(avdName: string = 'Pixel_8_Pro'): Promise<bo
 
   console.log(`Starting emulator: ${avdName}...`);
 
-  // Position window on right side of screen (x=2400 for ~3024px wide screen)
-  setEmulatorWindowPosition(avdName, 2400, 100);
+  // Position window on right side of screen (x=1100 for Retina point coordinates)
+  setEmulatorWindowPosition(avdName, 1100, 100);
 
   // Start emulator in background (detached)
   const child = spawn(emulatorPath, ['-avd', avdName], {

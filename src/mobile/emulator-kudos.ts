@@ -414,6 +414,24 @@ interface FeedKudosState {
   errors: number;
   rateLimited: boolean;
   processedPositions: Set<string>;
+  consecutiveFailedTaps: number;  // Track silent rejections for rate limit detection
+}
+
+/**
+ * Attempt to dump UI with video pause fallback
+ * If the initial dump times out (likely due to video content), tap the center
+ * of the screen to pause the video, then retry the dump.
+ */
+async function attemptDumpWithVideoPause(): Promise<adb.UiElement[]> {
+  try {
+    return await adb.dumpUi();
+  } catch (firstError) {
+    // Timeout likely means video playing - tap to pause
+    console.log('⚠ UI dump timeout, tapping to pause video...');
+    await adb.tap(672, 1500);  // Center of 1344x2992 screen
+    await adb.delay(300);
+    return await adb.dumpUi();  // Retry after pause
+  }
 }
 
 /**
@@ -436,7 +454,8 @@ async function giveKudosOnCurrentFeed(
 
     while (dumpRetries < maxDumpRetries) {
       try {
-        elements = await adb.dumpUi();
+        // Use video-pause fallback: if dump times out, tap to pause video and retry
+        elements = await attemptDumpWithVideoPause();
         break;  // Success, exit retry loop
       } catch (error) {
         dumpRetries++;
@@ -456,7 +475,7 @@ async function giveKudosOnCurrentFeed(
       continue;
     }
 
-    // Find unfilled kudos buttons in safe range
+    // Find unfilled kudos buttons in safe range that we haven't processed yet
     const buttons = findKudosButtons(elements)
       .filter(isUnfilledKudos)
       .filter(isInSafeYRange)
@@ -489,11 +508,46 @@ async function giveKudosOnCurrentFeed(
           console.log(`✓ Kudos at y=${Math.round(center.y)} (total: ${state.given + 1})`);
         }
 
-        // Count immediately on tap - no verification
+        // Count immediately on tap (will adjust if verification fails)
         state.given++;
 
         // Minimal delay between taps
         await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
+      }
+
+      // VERIFICATION: Check if taps worked BEFORE scrolling (same positions)
+      // This adds ~1 dump per screen, not per kudos
+      if (!dryRun && buttons.length > 0) {
+        const tappedPositions = buttons.map(b => `${b.bounds.x1},${b.bounds.y1}`);
+
+        try {
+          const verifyElements = await adb.dumpUi();
+          const stillUnfilled = findKudosButtons(verifyElements)
+            .filter(isUnfilledKudos)
+            .filter(el => {
+              const posKey = `${el.bounds.x1},${el.bounds.y1}`;
+              return tappedPositions.includes(posKey);
+            });
+
+          if (stillUnfilled.length > 0) {
+            // Taps were rejected - adjust count and track failures
+            state.given -= stillUnfilled.length;
+            state.consecutiveFailedTaps += stillUnfilled.length;
+            console.log(`⚠ ${stillUnfilled.length} tap(s) rejected (still unfilled) - adjusted total: ${state.given}, consecutive failures: ${state.consecutiveFailedTaps}`);
+
+            if (state.consecutiveFailedTaps >= 3) {
+              console.log('🛑 Rate limited: 3+ consecutive taps rejected');
+              state.rateLimited = true;
+              break;
+            }
+          } else {
+            // All taps succeeded, reset failure counter
+            state.consecutiveFailedTaps = 0;
+          }
+        } catch (verifyError) {
+          // Verification dump failed, continue without verification
+          console.log('⚠ Verification dump failed, continuing...');
+        }
       }
     }
 
@@ -555,6 +609,7 @@ export async function giveKudosMobile(
     errors: 0,
     rateLimited: false,
     processedPositions: new Set<string>(),
+    consecutiveFailedTaps: 0,
   };
 
   // Navigate to Groups tab
@@ -634,6 +689,7 @@ export async function giveKudosMobile(
         await navigateToClubsTab();
         clubs = await getClubsList();
         state.processedPositions.clear();
+        state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session
         // Reset club index to start from first club again
         clubIndex = -1; // Will be incremented to 0 at loop start
         processedClubs.clear();
@@ -648,6 +704,7 @@ export async function giveKudosMobile(
       // Clear processed positions when switching clubs (positions are screen-relative)
       // Different clubs have different activities at the same screen positions
       state.processedPositions.clear();
+      state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new club
 
       // Re-fetch clubs list (UI may have changed)
       clubs = await getClubsList();
