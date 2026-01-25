@@ -1,12 +1,12 @@
 import * as adb from './adb';
 
 const STRAVA_PACKAGE = 'com.strava';
-const KUDOS_DELAY_MIN_MS = 100;   // Minimal delay for speed
-const KUDOS_DELAY_MAX_MS = 300;   // Reduced max
-const SCROLL_DELAY_MS = 100;      // Faster scrolling
-const APP_LAUNCH_WAIT_MS = 2000;  // Reduced from 3000
-const NAV_DELAY_MS = 1200;        // Navigation needs more time
-const CLUB_LOAD_DELAY_MS = 1200;  // Club loading needs more time
+const KUDOS_DELAY_MIN_MS = 20;    // Fire-and-forget: faster tapping
+const KUDOS_DELAY_MAX_MS = 40;    // Fire-and-forget: tighter range
+const SCROLL_DELAY_MS = 30;       // Fire-and-forget: faster scrolling
+const APP_LAUNCH_WAIT_MS = 800;   // Fire-and-forget: slightly faster
+const NAV_DELAY_MS = 400;         // Fire-and-forget: faster nav
+const CLUB_LOAD_DELAY_MS = 400;   // Fire-and-forget: faster club load
 
 // Safe Y range for kudos buttons (avoid header and bottom nav)
 // Screen is 2992 height - stay in the middle area
@@ -406,47 +406,16 @@ async function giveKudosToActivity(button: adb.UiElement): Promise<void> {
   await adb.tapElement(button);
 }
 
-/**
- * Verify a kudos tap succeeded by re-dumping UI and checking button state
- * Returns true if button changed to "Kudos Given", false if still "Give Kudos"
- */
-async function verifyKudosTap(expectedY: number, tolerance: number = 100): Promise<boolean> {
-  const elements = await adb.dumpUi();
-
-  // Look for a "Kudos Given" button near where we tapped
-  const filledButtons = elements.filter(el => el.contentDesc === 'Kudos Given');
-  for (const btn of filledButtons) {
-    const y = adb.getCenter(btn).y;
-    if (Math.abs(y - expectedY) < tolerance) {
-      return true; // Found filled button near tap location
-    }
-  }
-
-  // Check if "Give Kudos" button still exists at that position (tap failed)
-  const unfilledButtons = elements.filter(el => el.contentDesc === 'Give Kudos');
-  for (const btn of unfilledButtons) {
-    const y = adb.getCenter(btn).y;
-    if (Math.abs(y - expectedY) < tolerance) {
-      return false; // Button still unfilled = tap rejected
-    }
-  }
-
-  // Button scrolled away or not found - assume success (optimistic)
-  return true;
-}
-
 interface FeedKudosState {
   given: number;
   errors: number;
-  consecutiveErrors: number;
   rateLimited: boolean;
   processedPositions: Set<string>;
 }
 
 /**
- * Give kudos on the current feed/screen with verification
- * Taps each button and verifies it worked before moving on.
- * Detects rate limiting via 3 consecutive failed taps.
+ * Give kudos on the current feed - FIRE AND FORGET mode
+ * No verification, just tap and count. Maximum speed.
  */
 async function giveKudosOnCurrentFeed(
   state: FeedKudosState,
@@ -454,37 +423,34 @@ async function giveKudosOnCurrentFeed(
   dryRun: boolean
 ): Promise<FeedKudosState> {
   let noNewButtonsCount = 0;
-  const maxNoNewButtons = 10; // Stop after 10 scrolls with no new buttons
+  const maxNoNewButtons = 8; // Reduced from 10 - exit faster
 
   while (!state.rateLimited && state.given < maxKudos) {
-    // Dump current UI (one dump per scroll)
+    // Single dumpUi to find buttons
     let elements: adb.UiElement[];
     try {
       elements = await adb.dumpUi();
     } catch (error) {
-      console.log(`\n⚠ UI dump failed, stopping gracefully (${state.given} kudos given)`);
+      console.log(`\n⚠ UI dump failed, stopping (${state.given} kudos tapped)`);
       break;
     }
 
-    // Check if we accidentally navigated to a post detail page
+    // Check for unexpected navigation
     if (isOnPostDetailPage(elements)) {
-      console.log('⚠ Accidentally on post detail page, escaping...');
       await escapeToSafeView();
-      continue;  // Re-dump UI after escaping
+      continue;
     }
 
-    // Find kudos buttons
-    const allKudosButtons = findKudosButtons(elements);
-    const unfilledButtons = allKudosButtons.filter(el => isUnfilledKudos(el));
-    const safeRangeButtons = unfilledButtons.filter(el => isInSafeYRange(el));
+    // Find unfilled kudos buttons in safe range
+    const buttons = findKudosButtons(elements)
+      .filter(isUnfilledKudos)
+      .filter(isInSafeYRange)
+      .filter(el => {
+        const posKey = `${el.bounds.x1},${el.bounds.y1}`;
+        return !state.processedPositions.has(posKey);
+      });
 
-    // Filter out already processed positions
-    const newButtons = safeRangeButtons.filter(el => {
-      const posKey = `${el.bounds.x1},${el.bounds.y1}`;
-      return !state.processedPositions.has(posKey);
-    });
-
-    if (newButtons.length === 0) {
+    if (buttons.length === 0) {
       noNewButtonsCount++;
       if (noNewButtonsCount >= maxNoNewButtons) {
         console.log('No more activities to kudos on this feed');
@@ -493,59 +459,32 @@ async function giveKudosOnCurrentFeed(
     } else {
       noNewButtonsCount = 0;
 
-      // VERIFIED TAPS: Tap each button and verify it worked
-      for (const button of newButtons) {
+      // Tap all visible buttons - NO VERIFICATION
+      for (const button of buttons) {
         if (state.given >= maxKudos) break;
-        if (state.rateLimited) break;
 
         const center = adb.getCenter(button);
         const posKey = `${button.bounds.x1},${button.bounds.y1}`;
         state.processedPositions.add(posKey);
 
         if (dryRun) {
-          console.log(`[DRY RUN] Would give kudos at y=${center.y}`);
-          state.given++;
-          continue;
-        }
-
-        // Retry tapping the same button up to 3 times
-        let success = false;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          // Tap the button
+          console.log(`[DRY RUN] Would tap kudos at y=${Math.round(center.y)}`);
+        } else {
           await giveKudosToActivity(button);
-
-          // Brief delay for UI to update
-          await adb.delay(300);
-
-          // Verify the tap worked
-          success = await verifyKudosTap(center.y);
-
-          if (success) {
-            state.given++;
-            state.consecutiveErrors = 0;
-            console.log(`✓ Kudos verified (${state.given})`);
-            break;
-          } else if (attempt < 3) {
-            console.log(`⚠ Tap attempt ${attempt} failed, retrying...`);
-            await adb.delay(200);
-          }
+          console.log(`✓ Kudos at y=${Math.round(center.y)} (total: ${state.given + 1})`);
         }
 
-        if (!success) {
-          state.errors++;
-          console.log(`⛔ Rate limited - button failed after 3 tap attempts`);
-          state.rateLimited = true;
-          break;
-        }
+        // Count immediately on tap - no verification
+        state.given++;
 
-        // Brief delay between buttons
+        // Minimal delay between taps
         await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
       }
     }
 
-    // Only scroll after processing all visible buttons
-    await adb.scrollDown(400, 100);
-    await adb.delay(80);
+    // Scroll distance balanced for speed vs coverage (450px)
+    await adb.scrollDown(450, 100);
+    await adb.delay(50);
   }
 
   return state;
@@ -577,6 +516,10 @@ export async function giveKudosMobile(
   const devices = adb.listDevices();
   console.log(`Connected device: ${devices[0]?.id}`);
 
+  // Disable Android animations for faster automation
+  console.log('Disabling animations...');
+  await adb.disableAnimations();
+
   // Launch Strava
   const launched = await launchStrava();
   if (!launched) {
@@ -591,7 +534,6 @@ export async function giveKudosMobile(
   let state: FeedKudosState = {
     given: 0,
     errors: 0,
-    consecutiveErrors: 0,
     rateLimited: false,
     processedPositions: new Set<string>(),
   };

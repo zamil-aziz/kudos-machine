@@ -9,11 +9,14 @@ export interface Config {
 
 export function loadConfig(): Config {
   const stravaSession = process.env.STRAVA_SESSION;
+  const mobileOnly = process.env.MOBILE_ONLY === 'true';
 
-  if (!stravaSession) {
+  // Only require session for browser mode
+  if (!stravaSession && !mobileOnly) {
     throw new Error(
       'STRAVA_SESSION environment variable is required. ' +
-      'Copy the _strava4_session cookie value from Chrome DevTools.'
+      'Copy the _strava4_session cookie value from Chrome DevTools. ' +
+      '(Or use MOBILE_ONLY=true to skip browser mode.)'
     );
   }
 
@@ -30,11 +33,10 @@ export function loadConfig(): Config {
     }
   }
   const dryRun = process.env.DRY_RUN === 'true';
-  const mobileOnly = process.env.MOBILE_ONLY === 'true';
   const skipMobile = process.env.SKIP_MOBILE === 'true';
 
   return {
-    stravaSession,
+    stravaSession: stravaSession || '',  // Empty string OK for mobile-only
     clubIds,
     maxKudosPerRun,
     dryRun,

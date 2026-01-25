@@ -1,11 +1,10 @@
 import { Page } from 'playwright';
 
-const KUDOS_DELAY_MIN_MS = 1000; // Randomized delay range to mimic human clicking
-const KUDOS_DELAY_MAX_MS = 2500;
+const KUDOS_DELAY_MIN_MS = 300; // Aggressive: minimal delay for speed
+const KUDOS_DELAY_MAX_MS = 800;
 const MAX_KUDOS_PER_CLUB = 100; // Strava limit is ~100 per 10 minutes
-const SCROLL_DELAY_MS = 400;
-const PAGE_LOAD_DELAY_MS = 2000;
-const POST_LIMIT_COOLDOWN_MS = 20000; // 20s recovery after hitting per-club limit
+const SCROLL_DELAY_MS = 200;
+const PAGE_LOAD_DELAY_MS = 1000;
 
 function randomDelay(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -232,15 +231,8 @@ export async function giveKudos(
         }
       }
 
-      // Randomized delay between kudos to mimic human behavior
+      // Minimal delay between kudos for speed
       await page.waitForTimeout(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
-
-      // 15% chance of a longer pause to appear more human
-      if (Math.random() < 0.15) {
-        const longPause = randomDelay(3000, 6000);
-        console.log(`  ☕ Taking a ${(longPause/1000).toFixed(1)}s break...`);
-        await page.waitForTimeout(longPause);
-      }
 
     } catch (error) {
       const errorMsg = String(error);
@@ -288,22 +280,7 @@ export async function giveKudosToAllFeeds(
       break;
     }
 
-    // Wait between clubs with adaptive delay based on kudos given
-    if (clubIds.length > 1) {
-      // Base delay + 100ms per kudos given (more kudos = more recovery needed)
-      const baseDelay = randomDelay(4000, 8000);
-      const kudosBonus = result.given * 100; // +100ms per kudos
-      let clubDelay = baseDelay + kudosBonus;
-
-      // Extra 20s cooldown if we hit the per-club limit
-      if (result.hitClubLimit) {
-        console.log(`  💤 Hit per-club limit, adding ${POST_LIMIT_COOLDOWN_MS/1000}s cooldown...`);
-        clubDelay += POST_LIMIT_COOLDOWN_MS;
-      }
-
-      console.log(`Waiting ${(clubDelay/1000).toFixed(1)}s before next club...`);
-      await page.waitForTimeout(clubDelay);
-    }
+    // No delay between clubs - maximum speed
   }
 
   return totalResult;

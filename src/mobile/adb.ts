@@ -275,3 +275,13 @@ export async function waitForElement(
 
   return null;
 }
+
+/**
+ * Disable Android animations for faster UI automation
+ * This significantly reduces wait times between UI transitions
+ */
+export async function disableAnimations(): Promise<void> {
+  await shell('settings put global window_animation_scale 0');
+  await shell('settings put global transition_animation_scale 0');
+  await shell('settings put global animator_duration_scale 0');
+}
