@@ -13,7 +13,7 @@ export const CLUB_NAMES: Record<string, string> = {
   '117492': 'Kuala Lumpur Strava Runners',
   '286796': 'KLCC Runners',
   '470584': 'Selangor Running Club',
-  '150558': 'Shah Alam Running Club',
+  '150558': 'Shah Alam Running Club (SARC)',
   '485876': 'TwtJogging',
   '949611': 'COROS Running Malaysia',
   '163112': 'Kyserun Krew',
@@ -37,22 +37,22 @@ export const CLUB_NAMES: Record<string, string> = {
   // US clubs
   '1307497': 'Los Angeles Marathon',
   '205391': 'Boston Athletic Association',
-  '500780': 'San Francisco Marathon',
-  '15879': 'SF Running Company',
+  '500780': 'The San Francisco Marathon',
+  '15879': 'San Francisco Running Company',
   '231407': 'The Strava Club',
-  '267501': 'Chicago Area Runners',
-  '449075': 'Fleet Feet Chicago',
-  '444924': 'lululemon chicago',
-  '239176': 'New Balance NYC',
+  '267501': 'Chicago Area Runners Association',
+  '449075': 'Fleet Feet Running Club: Chicago',
+  '444924': 'lululemon run club: chicago',
+  '239176': 'New Balance Run Club New York City',
   '269512': 'Houston Half Marathon',
   // Other
   '819861': 'Copenhagen Half Marathon',
-  '722299': 'Unknown',
-  '470994': 'Unknown',
-  '721441': 'Strava Running Club',
-  '1128193': 'Strava Running Club 2',
-  '1335883': 'Unknown',
-  '1215073': 'Unknown',
+  '722299': 'Red Bull',
+  '470994': 'Standard Chartered KL Marathon Club',
+  '721441': 'New Balance MY - Gemilang Run!',
+  '1128193': 'Official Team COROS Malaysia',
+  '1335883': 'Nomio',
+  '1215073': 'AMPANG RUN',
 };
 
 export function getClubName(clubId: string): string {
@@ -118,12 +118,12 @@ export function loadConfig(): Config {
 
         // Other
         '819861',  // Copenhagen Half Marathon
-        '722299',  // Unknown
-        '470994',  // Unknown
-        '721441',  // Strava Running Club
-        '1128193', // Strava Running Club
-        '1335883', // Unknown
-        '1215073', // Unknown
+        '722299',  // Red Bull
+        '470994',  // Standard Chartered KL Marathon Club
+        '721441',  // New Balance MY - Gemilang Run!
+        '1128193', // Official Team COROS Malaysia
+        '1335883', // Nomio
+        '1215073', // AMPANG RUN
       ];
 
   // Shuffle clubs to distribute kudos evenly across runs
