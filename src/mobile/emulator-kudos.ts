@@ -280,6 +280,12 @@ async function getClubsList(): Promise<string[]> {
   let noNewClubsCount = 0;
   const maxNoNewClubs = 3; // Stop after 3 scrolls with no new clubs
 
+  // Scroll to top first to ensure consistent starting position
+  for (let i = 0; i < 8; i++) {
+    await adb.swipe(672, 800, 672, 2000, 100);
+  }
+  await adb.delay(300);
+
   while (noNewClubsCount < maxNoNewClubs) {
     const elements = await adb.dumpUi();
 
@@ -321,7 +327,7 @@ async function getClubsList(): Promise<string[]> {
   console.log(`Discovered ${allClubNames.size} total clubs`);
 
   // Scroll back to top before returning
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 8; i++) {
     await adb.swipe(672, 800, 672, 2000, 100); // Scroll up
   }
   await adb.delay(500);
