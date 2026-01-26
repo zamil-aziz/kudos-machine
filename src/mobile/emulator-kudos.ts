@@ -788,6 +788,9 @@ export async function giveKudosMobile(
           console.log('⚠ Could not recover clubs list, stopping');
           break;
         }
+
+        // Reset club index to start fresh with recovered list
+        clubIndex = -1; // Will be incremented to 0 at loop start
       }
     }
   }
