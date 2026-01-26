@@ -1,7 +1,40 @@
 import { loadConfig } from './config';
 import { launchBrowser, closeBrowser } from './browser';
 import { giveKudosToAllFeeds, fetchUserClubs } from './kudos';
-import { isMobileAvailable, giveKudosMobile } from './mobile/emulator-kudos';
+import { isMobileAvailable, giveKudosMobile, killEmulator } from './mobile/emulator-kudos';
+import { execSync } from 'child_process';
+
+// Cleanup function to kill orphaned processes
+function cleanup(): void {
+  try {
+    execSync('pkill -f crashpad_handler 2>/dev/null || true', { stdio: 'pipe' });
+  } catch {
+    // Ignore errors
+  }
+}
+
+// Handle Ctrl+C and termination signals
+process.on('SIGINT', async () => {
+  console.log('\n\nInterrupted - cleaning up...');
+  try {
+    await killEmulator();
+  } catch {
+    // Ignore
+  }
+  cleanup();
+  process.exit(130);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\nTerminated - cleaning up...');
+  try {
+    await killEmulator();
+  } catch {
+    // Ignore
+  }
+  cleanup();
+  process.exit(143);
+});
 
 async function main(): Promise<void> {
   const startTime = new Date().toLocaleString();
@@ -78,6 +111,9 @@ async function main(): Promise<void> {
           : config.maxKudosPerRun - browserResult.given;
 
         mobileResult = await giveKudosMobile(remainingKudos, config.dryRun);
+
+        // Kill emulator after mobile automation completes to free memory
+        await killEmulator();
       } else {
         console.log('\n📱 Mobile automation unavailable (emulator failed to start)');
         console.log('   Tip: Run `emulator -list-avds` to see available emulators');
@@ -121,6 +157,9 @@ async function main(): Promise<void> {
     if (session) {
       await closeBrowser(session);
     }
+    // Always clean up emulator and orphaned processes on any exit
+    await killEmulator();
+    cleanup();
   }
 
   console.log('\nDone!');
