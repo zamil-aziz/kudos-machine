@@ -456,15 +456,32 @@ export async function disableAnimations(): Promise<void> {
 }
 
 /**
- * Kill the running emulator
+ * Kill all running emulators and clean up orphaned processes
  */
 export async function killEmulator(): Promise<void> {
-  try {
-    execSync('adb emu kill', { stdio: 'pipe' });
-    console.log('Emulator killed');
-    // Wait for emulator process to fully terminate
+  // Get all connected emulators
+  const devices = listDevices();
+  const emulators = devices.filter(d => d.id.includes('emulator'));
+
+  // Kill each emulator
+  for (const emu of emulators) {
+    try {
+      execSync(`adb -s ${emu.id} emu kill`, { stdio: 'pipe' });
+      console.log(`Emulator ${emu.id} killed`);
+    } catch {
+      // Emulator may already be dead
+    }
+  }
+
+  if (emulators.length > 0) {
+    // Wait for emulator processes to fully terminate
     await delay(3000);
+  }
+
+  // Clean up orphaned crashpad_handler processes left by emulator
+  try {
+    execSync('pkill -f crashpad_handler', { stdio: 'pipe' });
   } catch {
-    // Emulator may already be dead
+    // No crashpad processes to kill
   }
 }
