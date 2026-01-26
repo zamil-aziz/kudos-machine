@@ -6,7 +6,7 @@ import { homedir } from 'os';
 
 const execAsync = promisify(exec);
 
-const ADB_TIMEOUT_MS = 5000;  // Fast fail for video content
+const ADB_TIMEOUT_MS = 2000;  // Faster fail for video content
 
 export interface DeviceInfo {
   id: string;
@@ -164,7 +164,45 @@ export async function startEmulator(avdName: string = 'Pixel_8_Pro'): Promise<bo
       }).trim();
       if (bootStatus === '1') {
         console.log('Emulator booted successfully');
-        return true;
+
+        // Wait for ADB connection to stabilize
+        console.log('Waiting for ADB to stabilize...');
+        await delay(2000);
+
+        // Verify basic ADB commands work
+        for (let i = 0; i < 3; i++) {
+          try {
+            execSync('adb shell echo "ready"', { stdio: 'pipe', timeout: 3000 });
+            break;
+          } catch {
+            if (i < 2) await delay(1000);
+            else {
+              console.error('ADB connection unstable after boot');
+              return false;
+            }
+          }
+        }
+
+        // Wait for UIAutomator service to be ready (takes longer than basic ADB)
+        console.log('Waiting for UIAutomator service...');
+        for (let i = 0; i < 5; i++) {
+          try {
+            execSync('adb shell uiautomator dump /sdcard/test_dump.xml', {
+              stdio: 'pipe',
+              timeout: 10000
+            });
+            console.log('Emulator ready');
+            return true;
+          } catch {
+            if (i < 4) {
+              console.log(`UIAutomator not ready (attempt ${i + 1}/5), waiting...`);
+              await delay(2000);
+            }
+          }
+        }
+
+        console.error('UIAutomator service failed to initialize');
+        return false;
       }
     } catch {
       // Device not ready yet
@@ -215,6 +253,13 @@ export async function scrollDown(distance: number = 500, durationMs: number = 10
 }
 
 /**
+ * Send media pause command to pause any playing video
+ */
+export async function sendMediaPause(): Promise<void> {
+  await shell('input keyevent KEYCODE_MEDIA_PAUSE');
+}
+
+/**
  * Launch an app by package name
  */
 export async function launchApp(packageName: string, activity?: string): Promise<void> {
@@ -237,21 +282,31 @@ export async function isAppInForeground(packageName: string): Promise<boolean> {
   }
 }
 
+export interface DumpUiOptions {
+  quickFail?: boolean;  // Use shorter timeout/retries for video detection
+}
+
 /**
  * Dump UI hierarchy and return parsed elements
  * Includes retry logic to handle UIAutomator timeouts after many rapid calls
  */
-export async function dumpUi(): Promise<UiElement[]> {
+export async function dumpUi(options: DumpUiOptions = {}): Promise<UiElement[]> {
   const tmpFile = '/sdcard/window_dump.xml';
   const localFile = join(process.cwd(), '.tmp_ui_dump.xml');
 
-  const maxRetries = 3;
-  const retryDelayMs = 500;  // Fast retry for video content
+  // Quick fail mode: 2 retries, 2s timeout, 200ms delay (for video detection/verification)
+  // Normal mode: 4 retries, 10s timeout, 1s delay (for app launch/navigation)
+  const maxRetries = options.quickFail ? 2 : 4;
+  const timeoutMs = options.quickFail ? 2000 : 10000;
+  const retryDelayMs = options.quickFail ? 200 : 1000;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // Dump UI hierarchy to file on device
-      await shell(`uiautomator dump ${tmpFile}`);
+      await execAsync(`adb shell uiautomator dump ${tmpFile}`, {
+        timeout: timeoutMs,
+        encoding: 'utf-8'
+      });
 
       // Pull the file
       execSync(`adb pull ${tmpFile} "${localFile}"`, { stdio: 'pipe' });
