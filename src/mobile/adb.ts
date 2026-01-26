@@ -294,10 +294,10 @@ export async function dumpUi(options: DumpUiOptions = {}): Promise<UiElement[]> 
   const tmpFile = '/sdcard/window_dump.xml';
   const localFile = join(process.cwd(), '.tmp_ui_dump.xml');
 
-  // Quick fail mode: 2 retries, 2s timeout, 200ms delay (for video detection/verification)
+  // Quick fail mode: 2 retries, 5s timeout, 200ms delay (for video detection/verification)
   // Normal mode: 4 retries, 10s timeout, 1s delay (for app launch/navigation)
   const maxRetries = options.quickFail ? 2 : 4;
-  const timeoutMs = options.quickFail ? 2000 : 10000;
+  const timeoutMs = options.quickFail ? 5000 : 10000;
   const retryDelayMs = options.quickFail ? 200 : 1000;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {

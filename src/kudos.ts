@@ -1,4 +1,5 @@
 import { Page } from 'playwright';
+import { getClubName } from './config';
 
 const KUDOS_DELAY_MIN_MS = 300; // Aggressive: minimal delay for speed
 const KUDOS_DELAY_MAX_MS = 800;
@@ -119,9 +120,9 @@ export async function giveKudos(
   const result: KudosResult = { given: 0, errors: 0, rateLimited: false, hitClubLimit: false };
 
   const feedUrl = getFeedUrl(clubId);
-  const feedName = clubId ? `club ${clubId}` : 'main feed';
+  const clubName = clubId ? getClubName(clubId) : 'main feed';
 
-  console.log(`\nNavigating to ${feedName}...`);
+  console.log(`\n--- ${clubName} ---`);
   console.log(`URL: ${feedUrl}`);
 
   try {
@@ -134,7 +135,7 @@ export async function giveKudos(
       return result;
     }
     if (errorMsg.includes('Timeout') || errorMsg.includes('timeout')) {
-      console.log(`⚠️  Page load timed out for ${feedName} - skipping to next club`);
+      console.log(`⚠️  Page load timed out for ${clubName} - skipping to next club`);
       return result;
     }
     throw error;
