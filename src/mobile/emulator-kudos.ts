@@ -4,7 +4,7 @@ const STRAVA_PACKAGE = 'com.strava';
 const KUDOS_DELAY_MIN_MS = 20;    // Fire-and-forget: faster tapping
 const KUDOS_DELAY_MAX_MS = 40;    // Fire-and-forget: tighter range
 const SCROLL_DELAY_MS = 30;       // Fire-and-forget: faster scrolling
-const APP_LAUNCH_WAIT_MS = 800;   // Fire-and-forget: slightly faster
+const APP_LAUNCH_WAIT_MS = 2000;  // Wait for app UI to fully render
 const NAV_DELAY_MS = 400;         // Fire-and-forget: faster nav
 const CLUB_LOAD_DELAY_MS = 400;   // Fire-and-forget: faster club load
 const KUDOS_PER_SESSION = 100;    // Restart emulator after this many kudos to reset rate limit
@@ -418,19 +418,26 @@ interface FeedKudosState {
 }
 
 /**
- * Attempt to dump UI with video pause fallback
- * If the initial dump times out (likely due to video content), tap the center
- * of the screen to pause the video, then retry the dump.
+ * Attempt to dump UI with media pause fallback
+ * If the initial dump times out (likely due to video content), send a media
+ * pause key event to pause any playing video, then retry the dump.
+ * Uses quick fail mode for faster video detection (~5s vs ~40s).
  */
 async function attemptDumpWithVideoPause(): Promise<adb.UiElement[]> {
   try {
-    return await adb.dumpUi();
+    return await adb.dumpUi({ quickFail: true });
   } catch (firstError) {
-    // Timeout likely means video playing - tap to pause
-    console.log('⚠ UI dump timeout, tapping to pause video...');
-    await adb.tap(672, 1500);  // Center of 1344x2992 screen
-    await adb.delay(300);
-    return await adb.dumpUi();  // Retry after pause
+    // Dump timed out - likely video playing
+    console.log('⚠ UI dump timeout, sending media pause...');
+    await adb.sendMediaPause();
+    await adb.delay(150);
+
+    try {
+      return await adb.dumpUi({ quickFail: true });
+    } catch {
+      // Pause didn't help - will scroll past in caller
+      throw new Error('Video not pauseable');
+    }
   }
 }
 
@@ -444,29 +451,19 @@ async function giveKudosOnCurrentFeed(
   dryRun: boolean
 ): Promise<FeedKudosState> {
   let noNewButtonsCount = 0;
-  const maxNoNewButtons = 8; // Reduced from 10 - exit faster
+  const maxNoNewButtons = 10;  // Slightly higher to account for video scrolls
 
   while (!state.rateLimited && state.given < maxKudos) {
-    // Dump UI with scroll-on-failure retry (handles media-heavy screens)
+    // Try to dump UI, with media pause fallback
     let elements: adb.UiElement[] = [];
-    let dumpRetries = 0;
-    const maxDumpRetries = 3;
-
-    while (dumpRetries < maxDumpRetries) {
-      try {
-        // Use video-pause fallback: if dump times out, tap to pause video and retry
-        elements = await attemptDumpWithVideoPause();
-        break;  // Success, exit retry loop
-      } catch (error) {
-        dumpRetries++;
-        if (dumpRetries >= maxDumpRetries) {
-          console.log(`\n⚠ UI dump failed after ${maxDumpRetries} retries, stopping (${state.given} kudos tapped)`);
-          return state;  // Exit function entirely
-        }
-        console.log(`⚠ UI dump failed, scrolling past media content (attempt ${dumpRetries}/${maxDumpRetries})...`);
-        await adb.scrollDown(600, 100);  // Scroll past problematic content
-        await adb.delay(500);  // Wait for scroll to settle
-      }
+    try {
+      elements = await attemptDumpWithVideoPause();
+    } catch (error) {
+      // Video couldn't be paused - scroll past it with one big scroll
+      console.log('⚠ Video detected, scrolling past (1000px)...');
+      await adb.scrollDown(1000, 150);
+      await adb.delay(200);
+      continue;  // Next iteration of main loop
     }
 
     // Check for unexpected navigation
@@ -521,7 +518,7 @@ async function giveKudosOnCurrentFeed(
         const tappedPositions = buttons.map(b => `${b.bounds.x1},${b.bounds.y1}`);
 
         try {
-          const verifyElements = await adb.dumpUi();
+          const verifyElements = await adb.dumpUi({ quickFail: true });
           const stillUnfilled = findKudosButtons(verifyElements)
             .filter(isUnfilledKudos)
             .filter(el => {
@@ -553,7 +550,6 @@ async function giveKudosOnCurrentFeed(
 
     // Scroll distance balanced for speed vs coverage (450px)
     await adb.scrollDown(450, 100);
-    await adb.delay(50);
   }
 
   return state;
@@ -628,7 +624,9 @@ export async function giveKudosMobile(
 
   // Get initial list of clubs
   let clubs = await getClubsList();
-  console.log(`Found ${clubs.length} clubs`);
+  // Shuffle clubs to distribute kudos evenly across runs
+  clubs = clubs.sort(() => Math.random() - 0.5);
+  console.log(`Found ${clubs.length} clubs (shuffled)`);
 
   if (clubs.length === 0) {
     // Fallback: just process whatever is on screen
@@ -688,6 +686,7 @@ export async function giveKudosMobile(
         await navigateToGroupsTab();
         await navigateToClubsTab();
         clubs = await getClubsList();
+        clubs = clubs.sort(() => Math.random() - 0.5);
         state.processedPositions.clear();
         state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session
         // Reset club index to start from first club again
@@ -708,6 +707,7 @@ export async function giveKudosMobile(
 
       // Re-fetch clubs list (UI may have changed)
       clubs = await getClubsList();
+      clubs = clubs.sort(() => Math.random() - 0.5);
 
       // If we got kicked back too far, re-navigate
       if (clubs.length === 0) {
@@ -720,6 +720,7 @@ export async function giveKudosMobile(
         await navigateToGroupsTab();
         await navigateToClubsTab();
         clubs = await getClubsList();
+        clubs = clubs.sort(() => Math.random() - 0.5);
 
         // If still no clubs, we're stuck - stop processing
         if (clubs.length === 0) {
