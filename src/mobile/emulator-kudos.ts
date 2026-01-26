@@ -452,15 +452,24 @@ async function giveKudosOnCurrentFeed(
 ): Promise<FeedKudosState> {
   let noNewButtonsCount = 0;
   const maxNoNewButtons = 10;  // Slightly higher to account for video scrolls
+  let consecutiveDumpFailures = 0;
+  const maxDumpFailures = 5;  // Exit to next club after this many consecutive failures
 
   while (!state.rateLimited && state.given < maxKudos) {
     // Try to dump UI, with media pause fallback
     let elements: adb.UiElement[] = [];
     try {
       elements = await attemptDumpWithVideoPause();
+      consecutiveDumpFailures = 0;  // Reset on success
     } catch (error) {
-      // Video couldn't be paused - scroll past it with one big scroll
-      console.log('⚠ Video detected, scrolling past (1000px)...');
+      consecutiveDumpFailures++;
+      console.log(`⚠ Video detected, scrolling past (1000px)... (dump failure ${consecutiveDumpFailures}/${maxDumpFailures})`);
+
+      if (consecutiveDumpFailures >= maxDumpFailures) {
+        console.log('⚠ Too many consecutive dump failures, moving to next club');
+        break;
+      }
+
       await adb.scrollDown(1000, 150);
       await adb.delay(200);
       continue;  // Next iteration of main loop
