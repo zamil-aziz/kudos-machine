@@ -1,10 +1,78 @@
-# Strava Auto-Kudos - Notes
+# Strava Auto-Kudos - Technical Notes
 
-## Rate Limit Findings (Jan 2026)
+Internal documentation for rate limit research, architecture details, and implementation notes.
 
-Based on testing, here's what we learned about Strava's rate limits:
+## Quick Reference
 
-### Limits
+| Limit | Value | Notes |
+|-------|-------|-------|
+| Per-club (browser) | 40 | Auto-switches to next club |
+| Per-burst (browser) | ~99 | With 300-800ms delays |
+| Per-burst (mobile) | 150+ | Fire-and-forget mode, still testing |
+| Daily cumulative | ~750-800 | Account-wide, resets overnight |
+| Recovery time | 2+ hours | For full rate limit reset |
+
+---
+
+## Architecture
+
+### Dual-Platform Design
+
+```
+index.ts (orchestrator)
+├── Browser Phase (Playwright)
+│   ├── browser.ts    → Launch browser, inject session cookie
+│   ├── kudos.ts      → Navigate clubs, click kudos buttons
+│   └── config.ts     → Club IDs, env vars
+│
+└── Mobile Fallback (ADB)
+    ├── adb.ts            → ADB commands, UI dump parsing
+    └── emulator-kudos.ts → Strava app automation
+```
+
+### Browser Implementation
+
+- **Authentication**: Injects `_strava4_session` cookie before navigation
+- **Club navigation**: Shuffles clubs randomly, processes sequentially
+- **Kudos detection**: XPath `svg[data-testid="unfilled_kudos"]`
+- **Verification**: Polls DOM for count decrease (max 1s, 150ms intervals)
+- **Rate limit detection**: 3 consecutive silent rejections = stop
+- **Per-club limit**: 40 kudos, then auto-switch to next club
+- **Delays**: 300-800ms random between kudos (reduces rate limit impact)
+
+### Mobile Implementation
+
+- **UI automation**: ADB + UIAutomator XML dumps
+- **Fire-and-forget**: Taps all visible buttons (20-40ms delays), verifies in batch
+- **Club discovery**: Scrolls entire list, stores names (not elements - bounds go stale)
+- **Position tracking**: Remembers tapped Y-positions to avoid duplicates
+- **Video handling**: Detects timeout, sends KEYCODE_MEDIA_PAUSE, retries
+- **Rate limit reset**: Restarts emulator every 100 kudos
+- **Safe Y-range**: 500-2700px (avoids header/footer overlap)
+
+### Key Constants
+
+**Browser (kudos.ts)**
+```
+KUDOS_DELAY_MIN_MS = 300
+KUDOS_DELAY_MAX_MS = 800
+MAX_KUDOS_PER_CLUB = 40
+```
+
+**Mobile (emulator-kudos.ts)**
+```
+KUDOS_DELAY_MIN_MS = 20
+KUDOS_DELAY_MAX_MS = 40
+KUDOS_PER_SESSION = 100
+```
+
+---
+
+## Rate Limit Research (Jan 2026)
+
+Based on empirical testing, here's what we learned about Strava's rate limits:
+
+### Limits Summary
 
 | Type | Limit | What happens |
 |------|-------|--------------|
@@ -101,66 +169,10 @@ Run #15 revealed a daily cumulative limit:
 | #28 | 163 | Multi-club success |
 | #31 | 284 | Multi-club + timeouts = extra recovery |
 
-### Cookie Notes
+---
+
+## Cookie Notes
 
 - Cookie name: `_strava4_session`
 - Expires: Every 1-2 weeks
 - Get from: Chrome DevTools → Application → Cookies → strava.com
-
-## Running the Script
-
-```bash
-# Standard run (browser + mobile fallback)
-STRAVA_SESSION="your_cookie" bun start
-
-# With a limit
-STRAVA_SESSION="your_cookie" MAX_KUDOS_PER_RUN=50 bun start
-
-# Dry run (test without giving kudos)
-STRAVA_SESSION="your_cookie" DRY_RUN=true bun start
-
-# Mobile-only mode (skip browser, use emulator only)
-STRAVA_SESSION="your_cookie" MOBILE_ONLY=true bun start
-
-# Browser-only mode (disable mobile fallback)
-STRAVA_SESSION="your_cookie" SKIP_MOBILE=true bun start
-
-# Or use npm if bun not installed
-STRAVA_SESSION="your_cookie" npm start
-```
-
-## Mobile Automation Setup
-
-The script supports dual-platform automation to maximize daily kudos:
-- **Browser (Playwright):** 200-300+ kudos with multi-club + recovery time
-- **Mobile (Android Emulator):** ~130 kudos per rate limit bucket
-- **Combined:** ~300-400+ kudos per run
-
-### Prerequisites
-
-1. **Android Studio** with an emulator configured
-2. **ADB** installed (`brew install android-platform-tools`)
-3. **Strava app** installed and logged in on the emulator
-
-### Setup Steps
-
-```bash
-# List available emulators
-emulator -list-avds
-
-# Start an emulator (use Google APIs image, not Google Play)
-emulator -avd <name>
-
-# Verify ADB can see the emulator
-adb devices
-
-# Install Strava APK if needed
-adb install strava.apk
-```
-
-### How It Works
-
-1. Browser runs first, giving kudos until rate limited
-2. When browser hits rate limit, script switches to mobile emulator
-3. Mobile uses ADB to control the Strava app via UI automation
-4. Separate rate limit buckets mean ~2x total kudos
