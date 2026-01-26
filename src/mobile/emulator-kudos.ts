@@ -242,15 +242,24 @@ async function navigateToClubsTab(): Promise<boolean> {
   console.log('Checking Clubs sub-tab...');
   const elements = await adb.dumpUi();
 
-  // Look for Clubs tab by content-desc or text
-  const clubsTab = elements.find(el =>
-    el.contentDesc === 'Clubs' ||
-    (el.text === 'Clubs' && el.clickable)
+  // Check if we can already see club cards - if so, we're already on the Clubs view
+  const hasClubCards = elements.some(el =>
+    el.resourceId === 'com.strava:id/title' &&
+    el.text &&
+    el.text.length > 0 &&
+    !['Clubs', 'Active', 'Challenges', 'Groups'].includes(el.text)
   );
 
+  if (hasClubCards) {
+    console.log('Already on Clubs view (club cards visible)');
+    return true;
+  }
+
+  // Look for Clubs tab by content-desc
+  const clubsTab = elements.find(el => el.contentDesc === 'Clubs');
+
   if (clubsTab) {
-    // Tap it to ensure it's selected (Clubs is default but tap anyway to be safe)
-    console.log('Clubs tab found, tapping to ensure selected...');
+    console.log('Clubs tab found, tapping...');
     await adb.tapElement(clubsTab);
     await adb.delay(NAV_DELAY_MS);
     return true;
@@ -262,59 +271,103 @@ async function navigateToClubsTab(): Promise<boolean> {
 }
 
 /**
- * Get list of visible clubs from the clubs list
+ * Get list of all clubs by scrolling through the clubs list
+ * Returns just club names (not elements) since stored element bounds become invalid after scrolling
  */
-async function getClubsList(): Promise<adb.UiElement[]> {
-  const elements = await adb.dumpUi();
+async function getClubsList(): Promise<string[]> {
+  const allClubNames: Set<string> = new Set();
+  let previousCount = 0;
+  let noNewClubsCount = 0;
+  const maxNoNewClubs = 3; // Stop after 3 scrolls with no new clubs
 
-  // Club cards have resource-id="com.strava:id/title" with club name as text
-  const clubElements = elements.filter(el => {
-    // Primary: exact resource-id match for club titles
-    if (el.resourceId === 'com.strava:id/title' && el.text && el.text.length > 0) {
-      // Filter out tab names and navigation elements
-      const lowerText = el.text.toLowerCase();
-      if (lowerText === 'clubs' || lowerText === 'active' ||
-          lowerText === 'challenges' || lowerText === 'groups') {
-        return false;
+  while (noNewClubsCount < maxNoNewClubs) {
+    const elements = await adb.dumpUi();
+
+    // Club cards have resource-id="com.strava:id/title" with club name as text
+    const clubElements = elements.filter(el => {
+      // Primary: exact resource-id match for club titles
+      if (el.resourceId === 'com.strava:id/title' && el.text && el.text.length > 0) {
+        // Filter out tab names and navigation elements
+        const lowerText = el.text.toLowerCase();
+        if (lowerText === 'clubs' || lowerText === 'active' ||
+            lowerText === 'challenges' || lowerText === 'groups') {
+          return false;
+        }
+        return true;
       }
-      return true;
+      return false;
+    });
+
+    // Store just the name (not the element, as bounds become stale after scrolling)
+    for (const club of clubElements) {
+      allClubNames.add(club.text);
     }
-    return false;
-  });
 
-  return clubElements;
-}
+    // Check if we found new clubs
+    if (allClubNames.size === previousCount) {
+      noNewClubsCount++;
+    } else {
+      noNewClubsCount = 0;
+      previousCount = allClubNames.size;
+    }
 
-/**
- * Select a club from the clubs list by name
- */
-async function selectClub(clubName: string): Promise<boolean> {
-  console.log(`Selecting club: ${clubName}...`);
-  const elements = await adb.dumpUi();
-
-  const clubElement = elements.find(el =>
-    el.text.toLowerCase().includes(clubName.toLowerCase()) ||
-    el.contentDesc.toLowerCase().includes(clubName.toLowerCase())
-  );
-
-  if (clubElement) {
-    await adb.tapElement(clubElement);
-    await adb.delay(CLUB_LOAD_DELAY_MS);
-    return true;
+    // Scroll down to reveal more clubs
+    if (noNewClubsCount < maxNoNewClubs) {
+      await adb.scrollDown(800, 200);
+      await adb.delay(300);
+    }
   }
 
-  console.log(`Club "${clubName}" not found`);
-  return false;
+  console.log(`Discovered ${allClubNames.size} total clubs`);
+
+  // Scroll back to top before returning
+  for (let i = 0; i < 5; i++) {
+    await adb.swipe(672, 800, 672, 2000, 100); // Scroll up
+  }
+  await adb.delay(500);
+
+  return Array.from(allClubNames);
 }
 
 /**
- * Tap a club element directly
+ * Scroll to find a club by name and tap it
+ * This handles the case where clubs discovered during scrolling have stale bounds
  */
-async function tapClub(club: adb.UiElement): Promise<boolean> {
-  console.log(`Entering club: ${club.text || '(unnamed)'}...`);
-  await adb.tapElement(club);
-  await adb.delay(CLUB_LOAD_DELAY_MS);
-  return true;
+async function scrollToAndTapClub(clubName: string): Promise<boolean> {
+  console.log(`Looking for club: ${clubName}...`);
+
+  // Scroll up to top first to ensure consistent starting position
+  for (let i = 0; i < 5; i++) {
+    await adb.swipe(672, 800, 672, 2000, 100);
+  }
+  await adb.delay(300);
+
+  // Scroll down looking for the club
+  let scrollAttempts = 0;
+  const maxScrollAttempts = 15;
+
+  while (scrollAttempts < maxScrollAttempts) {
+    const elements = await adb.dumpUi();
+    const clubEl = elements.find(el =>
+      el.resourceId === 'com.strava:id/title' &&
+      el.text === clubName
+    );
+
+    if (clubEl) {
+      console.log(`Found club "${clubName}", tapping...`);
+      await adb.tapElement(clubEl);
+      await adb.delay(CLUB_LOAD_DELAY_MS);
+      return true;
+    }
+
+    // Scroll down to reveal more clubs
+    await adb.scrollDown(600, 200);
+    await adb.delay(300);
+    scrollAttempts++;
+  }
+
+  console.log(`Could not find club: ${clubName}`);
+  return false;
 }
 
 /**
@@ -631,13 +684,13 @@ export async function giveKudosMobile(
     console.log('Could not find Clubs tab, will try to process current view');
   }
 
-  // Get initial list of clubs
-  let clubs = await getClubsList();
+  // Get initial list of clubs (returns names, not elements)
+  let clubNames = await getClubsList();
   // Shuffle clubs to distribute kudos evenly across runs
-  clubs = clubs.sort(() => Math.random() - 0.5);
-  console.log(`Found ${clubs.length} clubs (shuffled)`);
+  clubNames = clubNames.sort(() => Math.random() - 0.5);
+  console.log(`Found ${clubNames.length} clubs (shuffled)`);
 
-  if (clubs.length === 0) {
+  if (clubNames.length === 0) {
     // Fallback: just process whatever is on screen
     console.log('No clubs found, processing current feed...');
     await scrollFeed();
@@ -646,21 +699,20 @@ export async function giveKudosMobile(
     // Process each club
     const processedClubs = new Set<string>();
 
-    for (let clubIndex = 0; clubIndex < clubs.length && !state.rateLimited; clubIndex++) {
-      const club = clubs[clubIndex];
-      const clubKey = club.text || `club_${clubIndex}`;
+    for (let clubIndex = 0; clubIndex < clubNames.length && !state.rateLimited; clubIndex++) {
+      const clubName = clubNames[clubIndex];
 
-      if (processedClubs.has(clubKey)) {
+      if (processedClubs.has(clubName)) {
         continue;
       }
-      processedClubs.add(clubKey);
+      processedClubs.add(clubName);
 
-      console.log(`\n--- Club ${clubIndex + 1}/${clubs.length}: ${clubKey} ---`);
+      console.log(`\n--- Club ${clubIndex + 1}/${clubNames.length}: ${clubName} ---`);
 
-      // Tap the club to enter it
-      const entered = await tapClub(club);
+      // Scroll to find and tap the club
+      const entered = await scrollToAndTapClub(clubName);
       if (!entered) {
-        console.log(`Failed to enter club: ${clubKey}`);
+        console.log(`Failed to enter club: ${clubName}`);
         continue;
       }
 
@@ -694,8 +746,8 @@ export async function giveKudosMobile(
         await adb.delay(APP_LAUNCH_WAIT_MS);
         await navigateToGroupsTab();
         await navigateToClubsTab();
-        clubs = await getClubsList();
-        clubs = clubs.sort(() => Math.random() - 0.5);
+        clubNames = await getClubsList();
+        clubNames = clubNames.sort(() => Math.random() - 0.5);
         state.processedPositions.clear();
         state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session
         // Reset club index to start from first club again
@@ -715,11 +767,11 @@ export async function giveKudosMobile(
       state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new club
 
       // Re-fetch clubs list (UI may have changed)
-      clubs = await getClubsList();
-      clubs = clubs.sort(() => Math.random() - 0.5);
+      clubNames = await getClubsList();
+      clubNames = clubNames.sort(() => Math.random() - 0.5);
 
       // If we got kicked back too far, re-navigate
-      if (clubs.length === 0) {
+      if (clubNames.length === 0) {
         console.log('Lost clubs list, attempting recovery...');
 
         // First, escape any unexpected views (post detail, etc.)
@@ -728,11 +780,11 @@ export async function giveKudosMobile(
         // Then try to navigate back to clubs
         await navigateToGroupsTab();
         await navigateToClubsTab();
-        clubs = await getClubsList();
-        clubs = clubs.sort(() => Math.random() - 0.5);
+        clubNames = await getClubsList();
+        clubNames = clubNames.sort(() => Math.random() - 0.5);
 
         // If still no clubs, we're stuck - stop processing
-        if (clubs.length === 0) {
+        if (clubNames.length === 0) {
           console.log('⚠ Could not recover clubs list, stopping');
           break;
         }
