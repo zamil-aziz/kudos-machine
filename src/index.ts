@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   const config = loadConfig();
 
   console.log(`\nConfiguration:`);
-  console.log(`  Club IDs: ${config.clubIds.length > 0 ? config.clubIds.join(', ') : '(default feed)'}`);
+  console.log(`  Clubs: ${config.clubIds.length} (shuffled)`);
   console.log(`  Max kudos per run: ${config.maxKudosPerRun === Infinity ? 'unlimited' : config.maxKudosPerRun}`);
   console.log(`  Dry run: ${config.dryRun}`);
   console.log(`  Mode: ${config.mobileOnly ? 'mobile only' : config.skipMobile ? 'browser only' : 'browser + mobile fallback'}`);
