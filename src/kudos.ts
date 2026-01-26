@@ -2,7 +2,7 @@ import { Page } from 'playwright';
 
 const KUDOS_DELAY_MIN_MS = 300; // Aggressive: minimal delay for speed
 const KUDOS_DELAY_MAX_MS = 800;
-const MAX_KUDOS_PER_CLUB = 100; // Strava limit is ~100 per 10 minutes
+const MAX_KUDOS_PER_CLUB = 40; // Auto-switch clubs after 40 kudos for better distribution
 const SCROLL_DELAY_MS = 200;
 const PAGE_LOAD_DELAY_MS = 1000;
 
