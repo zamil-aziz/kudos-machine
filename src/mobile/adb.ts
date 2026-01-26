@@ -479,6 +479,15 @@ export async function killEmulator(): Promise<void> {
   }
 
   // Clean up orphaned crashpad_handler processes left by emulator
+  // Run twice with delay to catch processes spawned during shutdown
+  try {
+    execSync('pkill -f crashpad_handler', { stdio: 'pipe' });
+  } catch {
+    // No crashpad processes to kill
+  }
+
+  await delay(500);
+
   try {
     execSync('pkill -f crashpad_handler', { stdio: 'pipe' });
   } catch {
