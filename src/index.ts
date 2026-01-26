@@ -1,11 +1,9 @@
 import { loadConfig } from './config';
 import { launchBrowser, closeBrowser } from './browser';
 import { giveKudosToAllFeeds, fetchUserClubs } from './kudos';
-import { appendRunLog } from './logger';
 import { isMobileAvailable, giveKudosMobile } from './mobile/emulator-kudos';
 
 async function main(): Promise<void> {
-  const startMs = Date.now();
   const startTime = new Date().toLocaleString();
   console.log('='.repeat(50));
   console.log(`Strava Auto-Kudos - ${startTime}`);
@@ -96,16 +94,6 @@ async function main(): Promise<void> {
       rateLimited: browserResult.rateLimited && (config.skipMobile || mobileResult.rateLimited),
     };
 
-    // Log run to JSON file and get daily total
-    const dailyTotal = appendRunLog({
-      timestamp: new Date().toISOString(),
-      kudosGiven: result.given,
-      errors: result.errors,
-      rateLimited: result.rateLimited,
-      dryRun: config.dryRun,
-      durationMs: Date.now() - startMs,
-    });
-
     // Print summary
     const endTime = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     console.log('\n' + '='.repeat(50));
@@ -118,7 +106,6 @@ async function main(): Promise<void> {
       console.log(`  Mobile kudos: ${mobileResult.given}`);
     }
     console.log(`  Total kudos: ${result.given}`);
-    console.log(`  Daily total: ${dailyTotal}`);
     console.log(`  Errors: ${result.errors}`);
     console.log(`  Rate limited: ${result.rateLimited}`);
 
