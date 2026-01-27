@@ -130,8 +130,23 @@ function isOnPostDetailPage(elements: adb.UiElement[]): boolean {
 }
 
 /**
- * Escape from unexpected views (post detail, activity detail, etc.)
- * Press back until we're on a recognizable screen
+ * Check if we're on a club detail page (not the clubs list)
+ * Club detail page has Activities/Posts tabs but NO Groups bottom nav
+ */
+function isOnClubDetailPage(elements: adb.UiElement[]): boolean {
+  const hasActivitiesTab = elements.some(el => el.text === 'Activities');
+  const hasGroupsNav = elements.some(el => el.contentDesc === 'Groups');
+  // Club detail page has Activities tab but no Groups bottom nav
+  return hasActivitiesTab && !hasGroupsNav;
+}
+
+/**
+ * Escape from unexpected views (post detail, activity detail, club detail, etc.)
+ * Press back until we're on a recognizable main screen with bottom navigation
+ *
+ * IMPORTANT: Only trust the Groups bottom nav tab as proof we're on a main screen.
+ * The "Activities" text appears on BOTH the clubs list AND the club detail page,
+ * so it cannot be used as a safe indicator.
  */
 async function escapeToSafeView(maxBackPresses: number = 3): Promise<void> {
   for (let i = 0; i < maxBackPresses; i++) {
@@ -145,16 +160,32 @@ async function escapeToSafeView(maxBackPresses: number = 3): Promise<void> {
       continue;
     }
 
-    // Check if we're on a recognizable screen (has Groups tab or club titles)
+    // Check if we're on club detail page (has Activities but no Groups bottom nav)
+    if (isOnClubDetailPage(elements)) {
+      console.log('Detected club detail page, pressing back...');
+      await adb.shell('input keyevent KEYCODE_BACK');
+      await adb.delay(500);
+      continue;
+    }
+
+    // Only trust the Groups bottom nav tab as proof we're on a main screen
+    // This is definitive - it only appears on screens with bottom navigation
     const hasGroupsTab = elements.some(el => el.contentDesc === 'Groups');
+
+    if (hasGroupsTab) {
+      // We're definitely on a main screen with bottom nav
+      return;
+    }
+
+    // Check for club cards (we're on clubs list)
     const hasClubTitles = elements.some(el =>
       el.resourceId === 'com.strava:id/title' &&
-      el.text && el.text.length > 0
+      el.text && el.text.length > 0 &&
+      !['Clubs', 'Active', 'Challenges', 'Groups', 'Activities', 'Posts'].includes(el.text)
     );
-    const hasActivitiesTab = elements.some(el => el.text === 'Activities');
 
-    if (hasGroupsTab || hasClubTitles || hasActivitiesTab) {
-      // We're on a safe screen
+    if (hasClubTitles) {
+      // We can see actual club names, we're on clubs list
       return;
     }
 
@@ -448,6 +479,7 @@ async function navigateToClubFeed(): Promise<boolean> {
 /**
  * Press back button to return to clubs list
  * Need to press twice: once to exit current view, once to exit club
+ * Verifies we actually reached the clubs list (has Groups bottom nav)
  */
 async function goBack(): Promise<void> {
   console.log('Going back to clubs list...');
@@ -459,6 +491,25 @@ async function goBack(): Promise<void> {
   // Second back: exits club page to clubs list
   await adb.shell('input keyevent KEYCODE_BACK');
   await adb.delay(NAV_DELAY_MS);
+
+  // Verify we reached a main screen with bottom navigation
+  // If not, press back again (we might have landed on club detail page)
+  const elements = await adb.dumpUi();
+  const hasGroupsNav = elements.some(el => el.contentDesc === 'Groups');
+
+  if (!hasGroupsNav) {
+    console.log('Not on main screen yet, pressing back again...');
+    await adb.shell('input keyevent KEYCODE_BACK');
+    await adb.delay(NAV_DELAY_MS);
+
+    // Check one more time
+    const elementsAfter = await adb.dumpUi();
+    const hasGroupsNavAfter = elementsAfter.some(el => el.contentDesc === 'Groups');
+
+    if (!hasGroupsNavAfter) {
+      console.log('Still not on main screen, will rely on recovery logic...');
+    }
+  }
 }
 
 /**
