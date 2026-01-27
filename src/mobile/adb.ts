@@ -138,8 +138,8 @@ export async function startEmulator(avdName: string = 'Pixel_8_Pro'): Promise<bo
   // Position window on right side of screen (x=1100 for Retina point coordinates)
   setEmulatorWindowPosition(avdName, 1100, 100);
 
-  // Start emulator in background (detached)
-  const child = spawn(emulatorPath, ['-avd', avdName], {
+  // Start emulator in background (detached), headless mode saves ~100MB RAM
+  const child = spawn(emulatorPath, ['-avd', avdName, '-no-window'], {
     detached: true,
     stdio: 'ignore'
   });

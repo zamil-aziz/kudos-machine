@@ -2,7 +2,7 @@ name: Strava Kudos
 
 on:
   schedule:
-    - cron: '0 0,12 * * *'  # 8 AM and 8 PM Malaysia time (UTC+8)
+    - cron: '0 0,6,12,18 * * *'  # Every 6 hours (midnight, 6 AM, noon, 6 PM UTC)
   workflow_dispatch:             # Manual trigger
 
 jobs:
