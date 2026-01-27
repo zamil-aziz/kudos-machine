@@ -493,4 +493,11 @@ export async function killEmulator(): Promise<void> {
   } catch {
     // No crashpad processes to kill
   }
+
+  // Kill ADB server - no need for it without emulator
+  try {
+    execSync('adb kill-server', { stdio: 'pipe' });
+  } catch {
+    // Server may already be dead
+  }
 }
