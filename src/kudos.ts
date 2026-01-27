@@ -1,11 +1,11 @@
 import { Page } from 'playwright';
 import { getClubName } from './config';
 
-const KUDOS_DELAY_MIN_MS = 800; // Conservative delay for CI automation
-const KUDOS_DELAY_MAX_MS = 1800;
+const KUDOS_DELAY_MIN_MS = 2000; // 2 seconds min - very conservative for CI
+const KUDOS_DELAY_MAX_MS = 4000; // 4 seconds max
 const MAX_KUDOS_PER_CLUB = 30; // Auto-switch clubs after 30 kudos for better distribution
-const CLUB_SWITCH_DELAY_MIN_MS = 30000; // 30 seconds between clubs
-const CLUB_SWITCH_DELAY_MAX_MS = 60000; // 60 seconds between clubs
+const CLUB_SWITCH_DELAY_MIN_MS = 240000; // 4 minutes between clubs
+const CLUB_SWITCH_DELAY_MAX_MS = 420000; // 7 minutes between clubs
 const SCROLL_DELAY_MS = 200;
 const PAGE_LOAD_DELAY_MS = 1000;
 
