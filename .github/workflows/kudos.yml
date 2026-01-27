@@ -1,0 +1,38 @@
+name: Strava Kudos
+
+on:
+  schedule:
+    - cron: '0 0,6,12,18 * * *'  # Every 6 hours (midnight, 6 AM, noon, 6 PM UTC)
+  workflow_dispatch:             # Manual trigger
+
+jobs:
+  kudos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run web kudos
+        env:
+          STRAVA_SESSION: ${{ secrets.STRAVA_SESSION }}
+          SKIP_MOBILE: 'true'
+        run: npm start
+
+      - name: Summary on failure
+        if: failure()
+        run: |
+          echo "## ❌ Kudos Run Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Possible causes:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Session cookie expired (update \`STRAVA_SESSION\` secret)" >> $GITHUB_STEP_SUMMARY
+          echo "- Rate limited by Strava (wait a few hours)" >> $GITHUB_STEP_SUMMARY
+          echo "- Strava website changed (check logs for details)" >> $GITHUB_STEP_SUMMARY
