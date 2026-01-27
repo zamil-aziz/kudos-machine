@@ -138,10 +138,6 @@ See [CLAUDE.md](CLAUDE.md) for detailed rate limit research and findings.
 
 The session cookie expires every 1-2 weeks. When you see "Session expired" in output, grab a fresh cookie from your browser.
 
-## Disclaimer
-
-This tool violates Strava's Terms of Service. Use at your own risk.
-
 ## License
 
 MIT
