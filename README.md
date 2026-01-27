@@ -14,8 +14,8 @@ Automatically give kudos to Strava club members' activities using dual-platform 
 
 1. **Browser Phase** runs first
    - Injects session cookie, navigates your clubs (shuffled randomly)
-   - Gives kudos with 300-800ms delays between clicks
-   - Switches clubs after 40 kudos each, stops on rate limit
+   - Gives kudos with 2-4s delays between clicks
+   - Switches clubs after 30 kudos each (with 4-7 min delay), stops on rate limit
 
 2. **Mobile Fallback** activates when browser hits rate limit
    - Uses separate rate limit bucket
@@ -100,8 +100,8 @@ Mobile automation provides an additional ~130 kudos when browser hits rate limit
 # List available emulators
 emulator -list-avds
 
-# Start emulator (script auto-starts "Pixel_8_Pro" if available)
-emulator -avd Pixel_8_Pro
+# Start emulator (script auto-starts "Pixel_8_Pro" in headless mode - no window)
+emulator -avd Pixel_8_Pro -no-window
 
 # Verify ADB sees the device
 adb devices
@@ -110,12 +110,32 @@ adb devices
 adb install strava.apk
 ```
 
+## GitHub Actions (Automated Runs)
+
+Run kudos automatically on a schedule using GitHub Actions.
+
+### Setup
+
+1. Push to a **public** GitHub repo (unlimited free Actions minutes)
+2. Add repository secret: **Settings → Secrets → Actions → New repository secret**
+   - Name: `STRAVA_SESSION`
+   - Value: Your `_strava4_session` cookie
+3. The workflow runs automatically every 6 hours (or trigger manually from Actions tab)
+
+### Scripts
+
+```bash
+bun run start:web     # Browser-only (used by CI)
+bun run start:mobile  # Mobile-only (local use)
+bun start             # Both (default)
+```
+
 ## Rate Limits
 
 | Limit | Value | Notes |
 |-------|-------|-------|
-| Per-club (browser) | 40 | Auto-switches to next club |
-| Per-burst (browser) | ~99 | With 300-800ms delays |
+| Per-club (browser) | 30 | Auto-switches to next club |
+| Per-burst (browser) | ~99 | With 2-4s delays |
 | Per-burst (mobile) | 150+ | Fire-and-forget mode |
 | Daily cumulative | ~750-800 | Account-wide cap |
 
@@ -133,6 +153,7 @@ See [CLAUDE.md](CLAUDE.md) for detailed rate limit research and findings.
 | Rate limited quickly | Wait 2+ hours between runs |
 | Mobile automation fails | Ensure using Google APIs image (not Play Store), Strava app logged in |
 | "Could not find club" | App may have updated UI - check for script updates |
+| No emulator window | Expected - runs headless. Check `adb devices` to verify it's running |
 
 ## Cookie Expiration
 

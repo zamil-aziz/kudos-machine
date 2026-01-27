@@ -6,8 +6,8 @@ Internal documentation for rate limit research, architecture details, and implem
 
 | Limit | Value | Notes |
 |-------|-------|-------|
-| Per-club (browser) | 40 | Auto-switches to next club |
-| Per-burst (browser) | ~99 | With 300-800ms delays |
+| Per-club (browser) | 30 | Auto-switches to next club |
+| Per-burst (browser) | ~99 | With 2-4s delays |
 | Per-burst (mobile) | 150+ | Fire-and-forget mode, still testing |
 | Daily cumulative | ~750-800 | Account-wide, resets overnight |
 | Recovery time | 2+ hours | For full rate limit reset |
@@ -37,11 +37,13 @@ index.ts (orchestrator)
 - **Kudos detection**: XPath `svg[data-testid="unfilled_kudos"]`
 - **Verification**: Polls DOM for count decrease (max 1s, 150ms intervals)
 - **Rate limit detection**: 3 consecutive silent rejections = stop
-- **Per-club limit**: 40 kudos, then auto-switch to next club
-- **Delays**: 300-800ms random between kudos (reduces rate limit impact)
+- **Per-club limit**: 30 kudos, then auto-switch to next club
+- **Delays**: 2-4s random between kudos (conservative for CI automation)
+- **Club switch delay**: 4-7 minutes between clubs
 
 ### Mobile Implementation
 
+- **Headless mode**: Runs without GUI window (`-no-window` flag), saves ~100MB RAM
 - **UI automation**: ADB + UIAutomator XML dumps
 - **Fire-and-forget**: Taps all visible buttons (20-40ms delays), verifies in batch
 - **Club discovery**: Scrolls entire list, stores names (not elements - bounds go stale)
@@ -54,9 +56,11 @@ index.ts (orchestrator)
 
 **Browser (kudos.ts)**
 ```
-KUDOS_DELAY_MIN_MS = 300
-KUDOS_DELAY_MAX_MS = 800
-MAX_KUDOS_PER_CLUB = 40
+KUDOS_DELAY_MIN_MS = 2000      // 2 seconds
+KUDOS_DELAY_MAX_MS = 4000      // 4 seconds
+MAX_KUDOS_PER_CLUB = 30
+CLUB_SWITCH_DELAY_MIN_MS = 240000  // 4 minutes
+CLUB_SWITCH_DELAY_MAX_MS = 420000  // 7 minutes
 ```
 
 **Mobile (emulator-kudos.ts)**
@@ -168,6 +172,30 @@ Run #15 revealed a daily cumulative limit:
 | #20 | 138 | Single club, delays working well |
 | #28 | 163 | Multi-club success |
 | #31 | 284 | Multi-club + timeouts = extra recovery |
+
+---
+
+## GitHub Actions Automation
+
+The project supports automated runs via GitHub Actions.
+
+### Workflow: `.github/workflows/kudos.yml`
+
+- **Schedule**: Every 6 hours (0:00, 6:00, 12:00, 18:00 UTC)
+- **Manual trigger**: Available via `workflow_dispatch`
+- **Mode**: Browser-only (`SKIP_MOBILE=true`) - emulator not available in CI
+
+### Setup
+
+1. Add repository secret: `STRAVA_SESSION` (your cookie value)
+2. Push to main branch
+3. Workflow runs automatically on schedule or trigger manually from Actions tab
+
+### Notes
+
+- Public repos get **unlimited** free GitHub Actions minutes
+- Cookie expires every 1-2 weeks - update the secret when it does
+- Runs will show as "failed" when rate limited (expected behavior)
 
 ---
 
