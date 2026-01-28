@@ -43,17 +43,25 @@ npx playwright install chromium
 3. Go to **Application** tab → **Cookies** → `https://www.strava.com`
 4. Find the `_strava4_session` cookie and copy its **Value**
 
-### 3. Run
+### 3. Configure Environment
+
+Create a `.env` file:
 
 ```bash
-STRAVA_SESSION="your_cookie" bun start
+STRAVA_SESSION=your_cookie_value_here
+```
+
+### 4. Run
+
+```bash
+bun start
 ```
 
 ## Configuration
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `STRAVA_SESSION` | Yes* | - | Session cookie value (*not required if `MOBILE_ONLY=true`) |
+| `STRAVA_SESSION` | Yes* | - | Session cookie (set in `.env` or env var, *not required if `MOBILE_ONLY=true`) |
 | `CLUB_IDS` | No | 32 hardcoded clubs | Comma-separated club IDs to process |
 | `MAX_KUDOS_PER_RUN` | No | Infinity | Stop after N kudos total |
 | `DRY_RUN` | No | false | Test mode - logs without clicking |
@@ -64,22 +72,22 @@ STRAVA_SESSION="your_cookie" bun start
 
 ```bash
 # Standard run (browser + mobile fallback)
-STRAVA_SESSION="abc123" bun start
+bun start
 
 # Limit to 50 kudos
-STRAVA_SESSION="abc123" MAX_KUDOS_PER_RUN=50 bun start
+MAX_KUDOS_PER_RUN=50 bun start
 
 # Specific clubs only
-STRAVA_SESSION="abc123" CLUB_IDS="117492,470584" bun start
+CLUB_IDS="117492,470584" bun start
 
 # Dry run (test without actually giving kudos)
-STRAVA_SESSION="abc123" DRY_RUN=true bun start
+DRY_RUN=true bun start
 
 # Mobile-only (skip browser)
-STRAVA_SESSION="abc123" MOBILE_ONLY=true bun start
+MOBILE_ONLY=true bun start
 
 # Browser-only (no mobile fallback)
-STRAVA_SESSION="abc123" SKIP_MOBILE=true bun start
+SKIP_MOBILE=true bun start
 ```
 
 ## Mobile Automation Setup (Optional)
@@ -110,6 +118,21 @@ adb devices
 adb install strava.apk
 ```
 
+## Accept Follow Requests
+
+Bulk accept pending follow requests:
+
+```bash
+bun run follows
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DRY_RUN` | false | Test mode - logs without clicking |
+| `HEADLESS` | true | Set to `false` to show browser |
+
+Processes ~2 accepts per second. Stops after 3 consecutive failures.
+
 ## GitHub Actions (Automated Runs)
 
 Run kudos automatically on a schedule using GitHub Actions.
@@ -125,9 +148,10 @@ Run kudos automatically on a schedule using GitHub Actions.
 ### Scripts
 
 ```bash
-bun run start:web     # Browser-only (used by CI)
-bun run start:mobile  # Mobile-only (local use)
-bun start             # Both (default)
+bun start             # Kudos: browser + mobile fallback
+bun run start:web     # Kudos: browser-only (used by CI)
+bun run start:mobile  # Kudos: mobile-only (local use)
+bun run follows       # Accept all pending follow requests
 ```
 
 ## Rate Limits
