@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "tsc && node dist/index.js",
     "start:web": "tsc && SKIP_MOBILE=true node dist/index.js",
-    "start:mobile": "tsc && MOBILE_ONLY=true node dist/index.js"
+    "start:mobile": "tsc && MOBILE_ONLY=true node dist/index.js",
+    "follows": "bun src/accept-follows.ts"
   },
   "keywords": ["strava", "kudos", "automation"],
   "license": "MIT",

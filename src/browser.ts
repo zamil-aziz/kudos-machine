@@ -6,11 +6,11 @@ export interface BrowserSession {
   page: Page;
 }
 
-export async function launchBrowser(sessionCookie: string): Promise<BrowserSession> {
-  console.log('Launching browser...');
+export async function launchBrowser(sessionCookie: string, headless: boolean = true): Promise<BrowserSession> {
+  console.log(`Launching browser (headless: ${headless})...`);
 
   const browser = await chromium.launch({
-    headless: true,
+    headless,
   });
 
   const context = await browser.newContext({

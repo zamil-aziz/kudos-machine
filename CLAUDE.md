@@ -52,6 +52,19 @@ index.ts (orchestrator)
 - **Rate limit reset**: Restarts emulator every 100 kudos
 - **Safe Y-range**: 500-2700px (avoids header/footer overlap)
 
+### Follow Requests
+
+```
+accept-follows.ts (entry point)
+└── follows.ts → Accept pending follow requests
+```
+
+- **Authentication**: Same session cookie injection as kudos
+- **Detection**: Locates `button:has-text("Accept")` on followers page
+- **Verification**: Waits 1.5s for DOM update, checks button count decreased
+- **Rate limit detection**: 3 consecutive failures = stop
+- **Delays**: 0.5-1s between accepts
+
 ### Key Constants
 
 **Browser (kudos.ts)**
@@ -68,6 +81,13 @@ CLUB_SWITCH_DELAY_MAX_MS = 420000  // 7 minutes
 KUDOS_DELAY_MIN_MS = 20
 KUDOS_DELAY_MAX_MS = 40
 KUDOS_PER_SESSION = 100
+```
+
+**Follow Requests (follows.ts)**
+```
+ACCEPT_DELAY_MIN_MS = 500      // 0.5 seconds
+ACCEPT_DELAY_MAX_MS = 1000     // 1 second
+VERIFY_WAIT_MS = 1500          // 1.5 seconds
 ```
 
 ---
