@@ -6,7 +6,7 @@ import { homedir } from 'os';
 
 const execAsync = promisify(exec);
 
-const ADB_TIMEOUT_MS = 2000;  // Faster fail for video content
+const ADB_TIMEOUT_MS = 5000;  // Allow time for slow emulator responses
 
 export interface DeviceInfo {
   id: string;
@@ -60,6 +60,22 @@ export function listDevices(): DeviceInfo[] {
 export function isEmulatorReady(): boolean {
   const devices = listDevices();
   return devices.some(d => d.state === 'device' && d.id.includes('emulator'));
+}
+
+/**
+ * Check if emulator is responsive (not a zombie)
+ * A zombie emulator shows as connected but ADB commands hang
+ */
+export function isEmulatorResponsive(timeoutMs = 5000): boolean {
+  try {
+    execSync('adb shell echo "health_check"', {
+      stdio: 'pipe',
+      timeout: timeoutMs
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -131,6 +147,22 @@ export async function startEmulator(avdName: string = 'Pixel_8_Pro'): Promise<bo
   if (!emulatorPath) {
     console.error('Could not find Android emulator. Set ANDROID_HOME or install Android Studio.');
     return false;
+  }
+
+  // Kill any zombie emulators first
+  try {
+    execSync('pkill -9 -f "qemu-system-aarch64"', { stdio: 'pipe' });
+    console.log('Cleaned up zombie emulator processes');
+    await delay(2000);
+  } catch {
+    // No zombie processes to kill
+  }
+
+  // Kill ADB server to clear stale connections
+  try {
+    execSync('adb kill-server', { stdio: 'pipe', timeout: 5000 });
+  } catch {
+    // Server may already be dead
   }
 
   console.log(`Starting emulator: ${avdName}...`);
@@ -457,20 +489,31 @@ export async function disableAnimations(): Promise<void> {
 
 /**
  * Kill all running emulators and clean up orphaned processes
+ * Handles zombie emulators where ADB commands hang
  */
 export async function killEmulator(): Promise<void> {
   // Get all connected emulators
   const devices = listDevices();
   const emulators = devices.filter(d => d.id.includes('emulator'));
 
-  // Kill each emulator
+  // Kill each emulator with timeout (handles zombies that hang on ADB commands)
   for (const emu of emulators) {
     try {
-      execSync(`adb -s ${emu.id} emu kill`, { stdio: 'pipe' });
+      execSync(`adb -s ${emu.id} emu kill`, { stdio: 'pipe', timeout: 5000 });
       console.log(`Emulator ${emu.id} killed`);
     } catch {
-      // Emulator may already be dead
+      // ADB command timed out or failed - will force kill below
+      console.log(`ADB kill failed for ${emu.id}, will force kill`);
     }
+  }
+
+  // Force kill any remaining emulator processes (qemu)
+  // This handles zombies where ADB commands hang
+  try {
+    execSync('pkill -9 -f "qemu-system-aarch64"', { stdio: 'pipe' });
+    console.log('Force killed emulator processes');
+  } catch {
+    // No emulator processes to kill
   }
 
   if (emulators.length > 0) {
@@ -494,9 +537,9 @@ export async function killEmulator(): Promise<void> {
     // No crashpad processes to kill
   }
 
-  // Kill ADB server - no need for it without emulator
+  // Kill ADB server to clear stale connections
   try {
-    execSync('adb kill-server', { stdio: 'pipe' });
+    execSync('adb kill-server', { stdio: 'pipe', timeout: 5000 });
   } catch {
     // Server may already be dead
   }

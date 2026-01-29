@@ -28,12 +28,17 @@ function randomDelay(min: number, max: number): number {
 
 /**
  * Check if mobile automation is available
+ * Verifies the emulator is not just connected but actually responsive
  */
 export function isMobileAvailable(): boolean {
   if (!adb.isAdbAvailable()) {
     return false;
   }
-  return adb.isEmulatorReady();
+  if (!adb.isEmulatorReady()) {
+    return false;
+  }
+  // Verify emulator is responsive (not a zombie)
+  return adb.isEmulatorResponsive();
 }
 
 /**
@@ -525,6 +530,7 @@ interface FeedKudosState {
   rateLimited: boolean;
   processedPositions: Set<string>;
   consecutiveFailedTaps: number;  // Track silent rejections for rate limit detection
+  consecutiveTapErrors: number;   // Track ADB tap failures (timeouts, etc.)
 }
 
 /**
@@ -619,13 +625,25 @@ async function giveKudosOnCurrentFeed(
 
         if (dryRun) {
           console.log(`[DRY RUN] Would tap kudos at y=${Math.round(center.y)}`);
+          state.given++;
         } else {
-          await giveKudosToActivity(button);
-          console.log(`✓ Kudos at y=${Math.round(center.y)} (total: ${state.given + 1})`);
-        }
+          try {
+            await giveKudosToActivity(button);
+            console.log(`✓ Kudos at y=${Math.round(center.y)} (total: ${state.given + 1})`);
+            state.given++;
+            state.consecutiveTapErrors = 0;  // Reset on success
+          } catch (error) {
+            // Tap failed (timeout or ADB error) - log and continue
+            state.consecutiveTapErrors++;
+            console.log(`⚠ Tap failed at y=${Math.round(center.y)} (${state.consecutiveTapErrors} consecutive)`);
+            state.errors++;
 
-        // Count immediately on tap (will adjust if verification fails)
-        state.given++;
+            if (state.consecutiveTapErrors >= 3) {
+              console.log('⚠ 3 consecutive tap failures, emulator may be unresponsive');
+              break;  // Exit the button loop, will move to next club or end
+            }
+          }
+        }
 
         // Minimal delay between taps
         await adb.delay(randomDelay(KUDOS_DELAY_MIN_MS, KUDOS_DELAY_MAX_MS));
@@ -725,6 +743,7 @@ export async function giveKudosMobile(
     rateLimited: false,
     processedPositions: new Set<string>(),
     consecutiveFailedTaps: 0,
+    consecutiveTapErrors: 0,
   };
 
   // Navigate to Groups tab
@@ -807,6 +826,7 @@ export async function giveKudosMobile(
         clubNames = clubNames.sort(() => Math.random() - 0.5);
         state.processedPositions.clear();
         state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session
+        state.consecutiveTapErrors = 0;   // Reset ADB error tracking for new session
         // Reset club index to start from first club again
         clubIndex = -1; // Will be incremented to 0 at loop start
         processedClubs.clear();
@@ -822,6 +842,7 @@ export async function giveKudosMobile(
       // Different clubs have different activities at the same screen positions
       state.processedPositions.clear();
       state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new club
+      state.consecutiveTapErrors = 0;   // Reset ADB error tracking for new club
 
       // Re-fetch clubs list (UI may have changed)
       clubNames = await getClubsList();

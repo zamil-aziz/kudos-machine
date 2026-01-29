@@ -13,13 +13,28 @@ function cleanup(): void {
   }
 }
 
+// Force kill emulator processes synchronously (for signal handlers)
+function forceKillEmulator(): void {
+  try {
+    execSync('pkill -9 -f "qemu-system-aarch64"', { stdio: 'pipe' });
+  } catch {
+    // No processes to kill
+  }
+  try {
+    execSync('adb kill-server', { stdio: 'pipe', timeout: 5000 });
+  } catch {
+    // Server may already be dead
+  }
+}
+
 // Handle Ctrl+C and termination signals
 process.on('SIGINT', async () => {
   console.log('\n\nInterrupted - cleaning up...');
   try {
     await killEmulator();
   } catch {
-    // Ignore
+    // killEmulator failed (likely zombie), force kill
+    forceKillEmulator();
   }
   cleanup();
   process.exit(130);
@@ -30,7 +45,8 @@ process.on('SIGTERM', async () => {
   try {
     await killEmulator();
   } catch {
-    // Ignore
+    // killEmulator failed (likely zombie), force kill
+    forceKillEmulator();
   }
   cleanup();
   process.exit(143);
