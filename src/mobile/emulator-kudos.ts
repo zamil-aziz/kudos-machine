@@ -586,7 +586,12 @@ async function giveKudosOnCurrentFeed(
         break;
       }
 
-      await adb.scrollDown(1000, 150);
+      try {
+        await adb.scrollDown(1000, 150);
+      } catch (scrollError) {
+        // Scroll failed, count as another dump failure
+        console.log('⚠ Scroll failed, will retry');
+      }
       await adb.delay(200);
       continue;  // Next iteration of main loop
     }
@@ -686,7 +691,12 @@ async function giveKudosOnCurrentFeed(
     }
 
     // Scroll distance balanced for speed vs coverage (450px)
-    await adb.scrollDown(450, 100);
+    try {
+      await adb.scrollDown(450, 100);
+    } catch (scrollError) {
+      // Scroll failed - continue anyway, will detect no new buttons if stuck
+      console.log('⚠ Scroll failed, continuing...');
+    }
   }
 
   return state;
