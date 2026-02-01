@@ -1,2 +1,2 @@
 export * from './adb';
-export * from './emulator-kudos';
+export { isMobileAvailable, giveKudosMobile, MobileKudosResult, startEmulator, killEmulator } from './emulator-kudos';

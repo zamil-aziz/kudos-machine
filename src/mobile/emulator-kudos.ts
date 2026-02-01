@@ -9,10 +9,21 @@ const NAV_DELAY_MS = 400;         // Fire-and-forget: faster nav
 const CLUB_LOAD_DELAY_MS = 400;   // Fire-and-forget: faster club load
 const KUDOS_PER_SESSION = 100;    // Restart emulator after this many kudos to reset rate limit
 
+// Reference screen dimensions (emulator Pixel 8 Pro)
+const REFERENCE_WIDTH = 1344;
+const REFERENCE_HEIGHT = 2992;
+
 // Safe Y range for kudos buttons (avoid header and bottom nav)
-// Screen is 2992 height - stay in the middle area
-const SAFE_Y_MIN = 500;   // Below header/toolbar area
-const SAFE_Y_MAX = 2700;  // Above bottom navigation
+// These are the reference values for 2992 height, will be scaled dynamically
+const REFERENCE_SAFE_Y_MIN = 500;   // Below header/toolbar area
+const REFERENCE_SAFE_Y_MAX = 2700;  // Above bottom navigation
+
+// Dynamic screen dimensions (initialized at runtime)
+let screenWidth = REFERENCE_WIDTH;
+let screenHeight = REFERENCE_HEIGHT;
+let safeYMin = REFERENCE_SAFE_Y_MIN;
+let safeYMax = REFERENCE_SAFE_Y_MAX;
+let screenCenterX = REFERENCE_WIDTH / 2;  // 672 for emulator
 
 export { startEmulator, killEmulator } from './adb';
 
@@ -27,18 +38,50 @@ function randomDelay(min: number, max: number): number {
 }
 
 /**
+ * Initialize screen dimensions from connected device
+ * Scales safe Y range and other coordinates proportionally
+ */
+function initScreenDimensions(): void {
+  const dims = adb.getScreenDimensions();
+  screenWidth = dims.width;
+  screenHeight = dims.height;
+  screenCenterX = screenWidth / 2;
+
+  // Update adb.ts scroll dimensions as well
+  adb.setScreenDimensions(screenWidth, screenHeight);
+
+  // Scale safe Y range proportionally to screen height
+  const heightRatio = screenHeight / REFERENCE_HEIGHT;
+  safeYMin = Math.round(REFERENCE_SAFE_Y_MIN * heightRatio);
+  // Keep ~300px margin from bottom for nav bar
+  safeYMax = screenHeight - Math.round((REFERENCE_HEIGHT - REFERENCE_SAFE_Y_MAX) * heightRatio);
+
+  console.log(`Screen: ${screenWidth}x${screenHeight}, safe Y: ${safeYMin}-${safeYMax}`);
+}
+
+// Re-export getDeviceType from adb for convenience
+export { getDeviceType } from './adb';
+
+/**
  * Check if mobile automation is available
- * Verifies the emulator is not just connected but actually responsive
+ * Checks for physical device first (preferred), then emulator
+ * Verifies the device is not just connected but actually responsive
  */
 export function isMobileAvailable(): boolean {
   if (!adb.isAdbAvailable()) {
     return false;
   }
+
+  // Check for physical device first (preferred)
+  if (adb.isPhysicalDeviceReady()) {
+    return adb.isDeviceResponsive();
+  }
+
+  // Fall back to emulator
   if (!adb.isEmulatorReady()) {
     return false;
   }
-  // Verify emulator is responsive (not a zombie)
-  return adb.isEmulatorResponsive();
+  return adb.isDeviceResponsive();
 }
 
 /**
@@ -117,10 +160,11 @@ function isUnfilledKudos(el: adb.UiElement): boolean {
 /**
  * Check if a kudos button is in a safe Y range (not near header/footer)
  * This prevents accidental taps on overlapping UI elements
+ * Uses dynamically calculated safe range based on screen dimensions
  */
 function isInSafeYRange(el: adb.UiElement): boolean {
   const center = adb.getCenter(el);
-  return center.y >= SAFE_Y_MIN && center.y <= SAFE_Y_MAX;
+  return center.y >= safeYMin && center.y <= safeYMax;
 }
 
 /**
@@ -234,10 +278,11 @@ async function scrollFeed(maxScrolls: number = 30): Promise<void> {
   }
 
   // Scroll back to top with multiple swipes
-  // Screen is 1344x2992, so center x is 672
   console.log('Scrolling back to top...');
+  const scrollStartY = Math.round(screenHeight * 0.2);  // 20% from top
+  const scrollEndY = Math.round(screenHeight * 0.6);    // 60% from top
   for (let i = 0; i < 5; i++) {
-    await adb.swipe(672, 600, 672, 1800, 200);
+    await adb.swipe(screenCenterX, scrollStartY, screenCenterX, scrollEndY, 200);
     await adb.delay(200);
   }
   await adb.delay(500);
@@ -262,10 +307,12 @@ async function navigateToGroupsTab(): Promise<boolean> {
     return true;
   }
 
-  // Fallback: tap at known position for 1344x2992 screen
-  // Groups tab is at center (941, 2788)
-  console.log('Groups tab not found by ID, trying position-based tap...');
-  await adb.tap(941, 2788);
+  // Fallback: tap at known position scaled to screen size
+  // Groups tab is at ~70% X, ~90% Y from top (varies slightly by device)
+  const groupsTabX = Math.round(screenWidth * 0.70);
+  const groupsTabY = Math.round(screenHeight * 0.90);
+  console.log(`Groups tab not found by ID, trying position-based tap at (${groupsTabX}, ${groupsTabY})...`);
+  await adb.tap(groupsTabX, groupsTabY);
   await adb.delay(NAV_DELAY_MS);
   return true;
 }
@@ -317,8 +364,10 @@ async function getClubsList(): Promise<string[]> {
   const maxNoNewClubs = 3; // Stop after 3 scrolls with no new clubs
 
   // Scroll to top first to ensure consistent starting position
+  const scrollUpStartY = Math.round(screenHeight * 0.27);  // ~27% from top
+  const scrollUpEndY = Math.round(screenHeight * 0.67);    // ~67% from top
   for (let i = 0; i < 8; i++) {
-    await adb.swipe(672, 800, 672, 2000, 100);
+    await adb.swipe(screenCenterX, scrollUpStartY, screenCenterX, scrollUpEndY, 100);
   }
   await adb.delay(300);
 
@@ -364,7 +413,7 @@ async function getClubsList(): Promise<string[]> {
 
   // Scroll back to top before returning
   for (let i = 0; i < 8; i++) {
-    await adb.swipe(672, 800, 672, 2000, 100); // Scroll up
+    await adb.swipe(screenCenterX, scrollUpStartY, screenCenterX, scrollUpEndY, 100); // Scroll up
   }
   await adb.delay(500);
 
@@ -379,8 +428,10 @@ async function scrollToAndTapClub(clubName: string): Promise<boolean> {
   console.log(`Looking for club: ${clubName}...`);
 
   // Scroll up to top first to ensure consistent starting position
+  const scrollUpStartY = Math.round(screenHeight * 0.27);
+  const scrollUpEndY = Math.round(screenHeight * 0.67);
   for (let i = 0; i < 5; i++) {
-    await adb.swipe(672, 800, 672, 2000, 100);
+    await adb.swipe(screenCenterX, scrollUpStartY, screenCenterX, scrollUpEndY, 100);
   }
   await adb.delay(300);
 
@@ -403,7 +454,7 @@ async function scrollToAndTapClub(clubName: string): Promise<boolean> {
     }
 
     // Scroll down to reveal more clubs
-    await adb.scrollDown(600, 200);
+    await adb.scrollDown(400, 200);
     await adb.delay(300);
     scrollAttempts++;
   }
@@ -690,9 +741,9 @@ async function giveKudosOnCurrentFeed(
       }
     }
 
-    // Scroll distance balanced for speed vs coverage (450px)
+    // Scroll distance balanced for speed vs coverage (300px for physical devices)
     try {
-      await adb.scrollDown(450, 100);
+      await adb.scrollDown(300, 100);
     } catch (scrollError) {
       // Scroll failed - continue anyway, will detect no new buttons if stuck
       console.log('⚠ Scroll failed, continuing...');
@@ -703,7 +754,8 @@ async function giveKudosOnCurrentFeed(
 }
 
 /**
- * Main function to give kudos via mobile emulator
+ * Main function to give kudos via mobile device
+ * Supports both physical devices and emulators
  * Navigates through all clubs in the Groups tab
  */
 export async function giveKudosMobile(
@@ -716,21 +768,34 @@ export async function giveKudosMobile(
   console.log('Mobile Kudos Automation');
   console.log('='.repeat(50));
 
-  // Check if emulator is ready, start it if not
-  if (!adb.isEmulatorReady()) {
-    console.log('No emulator running, attempting to start...');
+  // Detect device type (physical preferred over emulator)
+  let deviceType = adb.getDeviceType();
+
+  if (!deviceType) {
+    // No device connected, try to start emulator
+    console.log('No device detected, attempting to start emulator...');
     const started = await adb.startEmulator();
     if (!started) {
       console.error('Failed to start emulator automatically');
-      console.log('Tip: Run `emulator -list-avds` to see available emulators');
-      console.log('     Then `emulator -avd <name>` to start one manually');
+      console.log('Tip: Connect a physical device via USB with USB debugging enabled');
+      console.log('     Or run `emulator -list-avds` to see available emulators');
       result.errors = 1;
       return result;
     }
+    deviceType = 'emulator';
   }
 
   const devices = adb.listDevices();
-  console.log(`Connected device: ${devices[0]?.id}`);
+  const deviceId = devices.find(d => d.state === 'device')?.id || 'unknown';
+
+  if (deviceType === 'physical') {
+    console.log(`📱 Physical device detected: ${deviceId}`);
+  } else {
+    console.log(`🖥️  Emulator connected: ${deviceId}`);
+  }
+
+  // Initialize screen dimensions from connected device
+  initScreenDimensions();
 
   // Disable Android animations for faster automation
   console.log('Disabling animations...');
@@ -814,7 +879,8 @@ export async function giveKudosMobile(
       }
 
       // Check if we should restart emulator to reset rate limit bucket
-      if (state.given > 0 && state.given % KUDOS_PER_SESSION === 0) {
+      // Note: Only applicable to emulators - physical devices don't benefit from restart
+      if (deviceType === 'emulator' && state.given > 0 && state.given % KUDOS_PER_SESSION === 0) {
         console.log(`\n🔄 Reached ${KUDOS_PER_SESSION} kudos, restarting emulator to reset rate limit...`);
         await adb.killEmulator();
         const restarted = await adb.startEmulator();
@@ -823,6 +889,7 @@ export async function giveKudosMobile(
           break;
         }
         // Re-setup: disable animations, launch Strava, navigate to clubs
+        initScreenDimensions();  // Re-initialize after restart
         await adb.disableAnimations();
         const relaunched = await launchStrava();
         if (!relaunched) {

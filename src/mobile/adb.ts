@@ -63,10 +63,38 @@ export function isEmulatorReady(): boolean {
 }
 
 /**
- * Check if emulator is responsive (not a zombie)
- * A zombie emulator shows as connected but ADB commands hang
+ * Check if any physical device is connected (not emulator)
  */
-export function isEmulatorResponsive(timeoutMs = 5000): boolean {
+export function isPhysicalDeviceReady(): boolean {
+  const devices = listDevices();
+  return devices.some(d => d.state === 'device' && !d.id.includes('emulator'));
+}
+
+/**
+ * Check if any device (physical or emulator) is connected and ready
+ */
+export function isAnyDeviceReady(): boolean {
+  const devices = listDevices();
+  return devices.some(d => d.state === 'device');
+}
+
+/**
+ * Get the device type currently connected
+ * Returns 'physical' if a physical device is connected, 'emulator' if an emulator is running, null otherwise
+ * Physical devices are preferred over emulators
+ */
+export function getDeviceType(): 'physical' | 'emulator' | null {
+  if (isPhysicalDeviceReady()) return 'physical';
+  if (isEmulatorReady()) return 'emulator';
+  return null;
+}
+
+/**
+ * Check if the connected device is responsive (not a zombie)
+ * A zombie device shows as connected but ADB commands hang
+ * Works for both physical devices and emulators
+ */
+export function isDeviceResponsive(timeoutMs = 5000): boolean {
   try {
     execSync('adb shell echo "health_check"', {
       stdio: 'pipe',
@@ -76,6 +104,32 @@ export function isEmulatorResponsive(timeoutMs = 5000): boolean {
   } catch {
     return false;
   }
+}
+
+// Alias for backward compatibility
+export const isEmulatorResponsive = isDeviceResponsive;
+
+/**
+ * Get screen dimensions from connected device
+ * Returns width and height in pixels
+ */
+export function getScreenDimensions(): { width: number; height: number } {
+  try {
+    const output = execSync('adb shell wm size', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 5000
+    });
+    // Parse: "Physical size: 1080x2460" or "Override size: 1080x2460"
+    const match = output.match(/(\d+)x(\d+)/);
+    if (match) {
+      return { width: parseInt(match[1], 10), height: parseInt(match[2], 10) };
+    }
+  } catch {
+    // Fall through to default
+  }
+  // Default to emulator dimensions if detection fails
+  return { width: 1344, height: 2992 };
 }
 
 /**
@@ -274,14 +328,28 @@ export async function swipe(
   await shell(`input swipe ${Math.round(x1)} ${Math.round(y1)} ${Math.round(x2)} ${Math.round(y2)} ${durationMs}`);
 }
 
+// Current screen dimensions for scroll calculations
+let currentScreenWidth = 1344;
+let currentScreenHeight = 2992;
+
+/**
+ * Set screen dimensions for scroll calculations
+ * Called from emulator-kudos.ts after detecting device
+ */
+export function setScreenDimensions(width: number, height: number): void {
+  currentScreenWidth = width;
+  currentScreenHeight = height;
+}
+
 /**
  * Scroll down on the screen
- * Uses coordinates for 1344x2992 screen (center X = 672)
+ * Uses current screen dimensions (auto-detected or default 1344x2992)
  */
 export async function scrollDown(distance: number = 500, durationMs: number = 100): Promise<void> {
-  // Swipe from middle-bottom to middle-top
-  // Screen is 1344x2992, center X is 672, start from Y ~1800
-  await swipe(672, 1800, 672, 1800 - distance, durationMs);
+  // Swipe from middle area to scroll down
+  const centerX = Math.round(currentScreenWidth / 2);
+  const startY = Math.round(currentScreenHeight * 0.6);  // 60% from top
+  await swipe(centerX, startY, centerX, startY - distance, durationMs);
 }
 
 /**
@@ -480,11 +548,19 @@ export async function waitForElement(
 /**
  * Disable Android animations for faster UI automation
  * This significantly reduces wait times between UI transitions
+ * Note: Requires WRITE_SECURE_SETTINGS permission, which is only available
+ * on emulators or rooted devices. Fails silently on physical devices.
  */
 export async function disableAnimations(): Promise<void> {
-  await shell('settings put global window_animation_scale 0');
-  await shell('settings put global transition_animation_scale 0');
-  await shell('settings put global animator_duration_scale 0');
+  try {
+    await shell('settings put global window_animation_scale 0');
+    await shell('settings put global transition_animation_scale 0');
+    await shell('settings put global animator_duration_scale 0');
+  } catch {
+    // Physical devices don't have WRITE_SECURE_SETTINGS permission
+    // This is fine - animations will just be slower
+    console.log('Note: Could not disable animations (requires special permissions)');
+  }
 }
 
 /**

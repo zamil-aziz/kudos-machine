@@ -1,7 +1,7 @@
 import { loadConfig } from './config';
 import { launchBrowser, closeBrowser } from './browser';
 import { giveKudosToAllFeeds, fetchUserClubs } from './kudos';
-import { isMobileAvailable, giveKudosMobile, killEmulator } from './mobile/emulator-kudos';
+import { isMobileAvailable, giveKudosMobile, killEmulator, getDeviceType } from './mobile/emulator-kudos';
 import { execSync } from 'child_process';
 
 // Cleanup function to kill orphaned processes
@@ -107,19 +107,36 @@ async function main(): Promise<void> {
 
     if (shouldRunMobile) {
       let mobileReady = isMobileAvailable();
+      let deviceType = getDeviceType();
 
-      // Auto-start emulator if not running
+      // Auto-start emulator if no device is connected
       if (!mobileReady) {
-        console.log('\n📱 No emulator detected, attempting to start...');
-        const { startEmulator } = await import('./mobile/adb');
-        mobileReady = await startEmulator();
+        // Check for physical device first
+        const { isPhysicalDeviceReady, startEmulator } = await import('./mobile/adb');
+        if (isPhysicalDeviceReady()) {
+          console.log('\n📱 Physical device detected!');
+          mobileReady = true;
+          deviceType = 'physical';
+        } else {
+          console.log('\n📱 No device detected, attempting to start emulator...');
+          mobileReady = await startEmulator();
+          deviceType = mobileReady ? 'emulator' : null;
+        }
       }
 
       if (mobileReady) {
         if (config.mobileOnly) {
-          console.log('\n📱 Running in mobile-only mode...');
+          if (deviceType === 'physical') {
+            console.log('\n📱 Running in mobile-only mode (physical device)...');
+          } else {
+            console.log('\n📱 Running in mobile-only mode (emulator)...');
+          }
         } else {
-          console.log('\n🔄 Browser rate limited, switching to mobile emulator...');
+          if (deviceType === 'physical') {
+            console.log('\n🔄 Browser rate limited, switching to physical device...');
+          } else {
+            console.log('\n🔄 Browser rate limited, switching to mobile emulator...');
+          }
         }
 
         const remainingKudos = config.maxKudosPerRun === Infinity
@@ -128,13 +145,16 @@ async function main(): Promise<void> {
 
         mobileResult = await giveKudosMobile(remainingKudos, config.dryRun);
 
-        // Kill emulator after mobile automation completes to free memory
-        await killEmulator();
+        // Only kill emulator if we're using one, not physical device
+        if (deviceType === 'emulator') {
+          await killEmulator();
+        }
       } else {
-        console.log('\n📱 Mobile automation unavailable (emulator failed to start)');
-        console.log('   Tip: Run `emulator -list-avds` to see available emulators');
+        console.log('\n📱 Mobile automation unavailable (no device connected and emulator failed to start)');
+        console.log('   Tip: Connect a physical device via USB with USB debugging enabled');
+        console.log('        Or run `emulator -list-avds` to see available emulators');
         if (config.mobileOnly) {
-          throw new Error('Mobile-only mode requested but no emulator available');
+          throw new Error('Mobile-only mode requested but no device available');
         }
       }
     }
@@ -173,8 +193,11 @@ async function main(): Promise<void> {
     if (session) {
       await closeBrowser(session);
     }
-    // Always clean up emulator and orphaned processes on any exit
-    await killEmulator();
+    // Only clean up emulator processes, not physical devices
+    const finalDeviceType = getDeviceType();
+    if (finalDeviceType === 'emulator') {
+      await killEmulator();
+    }
     cleanup();
   }
 
