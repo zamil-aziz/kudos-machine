@@ -224,3 +224,34 @@ The project supports automated runs via GitHub Actions.
 - Cookie name: `_strava4_session`
 - Expires: Every 1-2 weeks
 - Get from: Chrome DevTools → Application → Cookies → strava.com
+
+---
+
+## Discovering Clubs
+
+To check which clubs the user is a member of, use Playwright to inspect the Strava dashboard sidebar.
+
+### Method
+
+1. **Navigate to dashboard**: Go to `https://www.strava.com/dashboard`
+2. **Locate sidebar**: Clubs are listed in the left sidebar under "Your Clubs"
+3. **Extract club data**: Each club link has the format `/clubs/{club_id}`
+
+### Using Playwright MCP
+
+```typescript
+// Take a snapshot to see the sidebar
+mcp__playwright__browser_snapshot()
+
+// Or navigate directly to clubs page
+mcp__playwright__browser_navigate({ url: "https://www.strava.com/athlete/clubs" })
+```
+
+### Club URL Format
+- Club page: `https://www.strava.com/clubs/{club_id}`
+- Recent activity: `https://www.strava.com/clubs/{club_id}/recent_activity`
+
+### Tips
+- The sidebar shows club names but not IDs directly - extract IDs from the href links
+- Compare discovered clubs against `src/config.ts` to find missing or removed clubs
+- Club IDs are numeric strings (e.g., `'117492'`, `'1043873'`)
