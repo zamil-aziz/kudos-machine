@@ -1,4 +1,5 @@
 import * as adb from './adb';
+import { getInternationalClubNames } from '../config';
 
 const STRAVA_PACKAGE = 'com.strava';
 const KUDOS_DELAY_MIN_MS = 20;    // Fire-and-forget: faster tapping
@@ -353,72 +354,6 @@ async function navigateToClubsTab(): Promise<boolean> {
   return true;
 }
 
-/**
- * Get list of all clubs by scrolling through the clubs list
- * Returns just club names (not elements) since stored element bounds become invalid after scrolling
- */
-async function getClubsList(): Promise<string[]> {
-  const allClubNames: Set<string> = new Set();
-  let previousCount = 0;
-  let noNewClubsCount = 0;
-  const maxNoNewClubs = 3; // Stop after 3 scrolls with no new clubs
-
-  // Scroll to top first to ensure consistent starting position
-  const scrollUpStartY = Math.round(screenHeight * 0.27);  // ~27% from top
-  const scrollUpEndY = Math.round(screenHeight * 0.67);    // ~67% from top
-  for (let i = 0; i < 8; i++) {
-    await adb.swipe(screenCenterX, scrollUpStartY, screenCenterX, scrollUpEndY, 100);
-  }
-  await adb.delay(300);
-
-  while (noNewClubsCount < maxNoNewClubs) {
-    const elements = await adb.dumpUi();
-
-    // Club cards have resource-id="com.strava:id/title" with club name as text
-    const clubElements = elements.filter(el => {
-      // Primary: exact resource-id match for club titles
-      if (el.resourceId === 'com.strava:id/title' && el.text && el.text.length > 0) {
-        // Filter out tab names and navigation elements
-        const lowerText = el.text.toLowerCase();
-        if (lowerText === 'clubs' || lowerText === 'active' ||
-            lowerText === 'challenges' || lowerText === 'groups') {
-          return false;
-        }
-        return true;
-      }
-      return false;
-    });
-
-    // Store just the name (not the element, as bounds become stale after scrolling)
-    for (const club of clubElements) {
-      allClubNames.add(club.text);
-    }
-
-    // Check if we found new clubs
-    if (allClubNames.size === previousCount) {
-      noNewClubsCount++;
-    } else {
-      noNewClubsCount = 0;
-      previousCount = allClubNames.size;
-    }
-
-    // Scroll down to reveal more clubs
-    if (noNewClubsCount < maxNoNewClubs) {
-      await adb.scrollDown(800, 200);
-      await adb.delay(300);
-    }
-  }
-
-  console.log(`Discovered ${allClubNames.size} total clubs`);
-
-  // Scroll back to top before returning
-  for (let i = 0; i < 8; i++) {
-    await adb.swipe(screenCenterX, scrollUpStartY, screenCenterX, scrollUpEndY, 100); // Scroll up
-  }
-  await adb.delay(500);
-
-  return Array.from(allClubNames);
-}
 
 /**
  * Scroll to find a club by name and tap it
@@ -835,11 +770,11 @@ export async function giveKudosMobile(
     console.log('Could not find Clubs tab, will try to process current view');
   }
 
-  // Get initial list of clubs (returns names, not elements)
-  let clubNames = await getClubsList();
+  // Get international club names from config (no scrolling needed)
+  let clubNames = getInternationalClubNames();
   // Shuffle clubs to distribute kudos evenly across runs
   clubNames = clubNames.sort(() => Math.random() - 0.5);
-  console.log(`Found ${clubNames.length} clubs (shuffled)`);
+  console.log(`Processing ${clubNames.length} international clubs (shuffled)`);
 
   if (clubNames.length === 0) {
     // Fallback: just process whatever is on screen
@@ -899,7 +834,7 @@ export async function giveKudosMobile(
         await adb.delay(APP_LAUNCH_WAIT_MS);
         await navigateToGroupsTab();
         await navigateToClubsTab();
-        clubNames = await getClubsList();
+        clubNames = getInternationalClubNames();
         clubNames = clubNames.sort(() => Math.random() - 0.5);
         state.processedPositions.clear();
         state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session
@@ -921,31 +856,16 @@ export async function giveKudosMobile(
       state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new club
       state.consecutiveTapErrors = 0;   // Reset ADB error tracking for new club
 
-      // Re-fetch clubs list (UI may have changed)
-      clubNames = await getClubsList();
-      clubNames = clubNames.sort(() => Math.random() - 0.5);
+      // Club list comes from config, no need to re-fetch
+      // Just verify we're on the clubs list screen, recover if needed
+      const elements = await adb.dumpUi();
+      const hasGroupsNav = elements.some(el => el.contentDesc === 'Groups');
 
-      // If we got kicked back too far, re-navigate
-      if (clubNames.length === 0) {
-        console.log('Lost clubs list, attempting recovery...');
-
-        // First, escape any unexpected views (post detail, etc.)
+      if (!hasGroupsNav) {
+        console.log('Not on clubs list, attempting recovery...');
         await escapeToSafeView();
-
-        // Then try to navigate back to clubs
         await navigateToGroupsTab();
         await navigateToClubsTab();
-        clubNames = await getClubsList();
-        clubNames = clubNames.sort(() => Math.random() - 0.5);
-
-        // If still no clubs, we're stuck - stop processing
-        if (clubNames.length === 0) {
-          console.log('⚠ Could not recover clubs list, stopping');
-          break;
-        }
-
-        // Reset club index to start fresh with recovered list
-        clubIndex = -1; // Will be incremented to 0 at loop start
       }
     }
   }
