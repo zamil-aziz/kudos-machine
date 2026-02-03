@@ -63,6 +63,33 @@ export function getClubName(clubId: string): string {
   return CLUB_NAMES[clubId] || clubId;
 }
 
+// Malaysian club IDs - excluded from mobile automation
+export const MALAYSIAN_CLUB_IDS = [
+  '117492',   // Kuala Lumpur Strava Runners
+  '286796',   // KLCC Runners
+  '470584',   // Selangor Running Club
+  '150558',   // Shah Alam Running Club (SARC)
+  '485876',   // TwtJogging
+  '949611',   // COROS Running Malaysia
+  '163112',   // Kyserun Krew
+  '1524029',  // Kita Pelari Malaysia
+  '1043873',  // Pacemakers Malaysia
+  '470994',   // Standard Chartered KL Marathon Club
+  '721441',   // New Balance MY - Gemilang Run!
+  '1128193',  // Official Team COROS Malaysia
+  '1215073',  // AMPANG RUN
+];
+
+/**
+ * Get international club names (excluding Malaysian clubs)
+ * Used by mobile automation to avoid processing local clubs
+ */
+export function getInternationalClubNames(): string[] {
+  return Object.entries(CLUB_NAMES)
+    .filter(([id]) => !MALAYSIAN_CLUB_IDS.includes(id))
+    .map(([, name]) => name);
+}
+
 export function loadConfig(): Config {
   const stravaSession = process.env.STRAVA_SESSION;
   const mobileOnly = process.env.MOBILE_ONLY === 'true';
