@@ -18,12 +18,16 @@ export const CLUB_NAMES: Record<string, string> = {
   '949611': 'COROS Running Malaysia',
   '163112': 'Kyserun Krew',
   '1524029': 'Kita Pelari Malaysia',
+  '1043873': 'Pacemakers Malaysia',
   // adidas clubs
   '206162': 'adidas Running UK',
   '529312': 'adidas Manchester Marathon',
   '277950': 'adidas 10K Paris',
   '1199487': 'adidas TERREX',
   '1116447': 'adidas Stockholm Marathon',
+  // Brand clubs
+  '198445': 'Pro Direct Run Club',
+  '661081': 'SportsShoes Run Club',
   // UK races
   '281345': 'Great Scottish Run',
   '651748': 'Great Bristol Run',
@@ -51,8 +55,8 @@ export const CLUB_NAMES: Record<string, string> = {
   '470994': 'Standard Chartered KL Marathon Club',
   '721441': 'New Balance MY - Gemilang Run!',
   '1128193': 'Official Team COROS Malaysia',
-  '1335883': 'Nomio',
   '1215073': 'AMPANG RUN',
+  '479648': 'The Running Channel',
 };
 
 export function getClubName(clubId: string): string {
@@ -85,6 +89,7 @@ export function loadConfig(): Config {
         '949611',  // COROS Running Malaysia
         '163112',  // Kyserun Krew
         '1524029', // Kita Pelari Malaysia
+        '1043873', // Pacemakers Malaysia
 
         // adidas clubs
         '206162',  // adidas Running UK
@@ -92,6 +97,10 @@ export function loadConfig(): Config {
         '277950',  // adidas 10K Paris
         '1199487', // adidas TERREX
         '1116447', // adidas Stockholm Marathon
+
+        // Brand clubs
+        '198445',  // Pro Direct Run Club
+        '661081',  // SportsShoes Run Club
 
         // UK races
         '281345',  // Great Scottish Run
@@ -122,8 +131,8 @@ export function loadConfig(): Config {
         '470994',  // Standard Chartered KL Marathon Club
         '721441',  // New Balance MY - Gemilang Run!
         '1128193', // Official Team COROS Malaysia
-        '1335883', // Nomio
         '1215073', // AMPANG RUN
+        '479648',  // The Running Channel
       ];
 
   // Shuffle clubs to distribute kudos evenly across runs
