@@ -43,7 +43,7 @@ export const CLUB_NAMES: Record<string, string> = {
   '205391': 'Boston Athletic Association',
   '500780': 'The San Francisco Marathon',
   '15879': 'San Francisco Running Company',
-  '231407': 'The Strava Club',
+  // '231407': 'The Strava Club',  // No activities list — wastes a club-switch delay slot
   '267501': 'Chicago Area Runners Association',
   '449075': 'Fleet Feet Running Club: Chicago',
   '444924': 'lululemon run club: chicago',
@@ -145,7 +145,7 @@ export function loadConfig(): Config {
         '205391',  // Boston Athletic Association
         '500780',  // The San Francisco Marathon
         '15879',   // San Francisco Running Company
-        '231407',  // The Strava Club
+        // '231407',  // The Strava Club — no activities list
         '267501',  // Chicago Area Runners Association
         '449075',  // Fleet Feet Running Club: Chicago
         '444924',  // lululemon run club: chicago
