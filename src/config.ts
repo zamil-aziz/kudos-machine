@@ -49,6 +49,20 @@ export const CLUB_NAMES: Record<string, string> = {
   '444924': 'lululemon run club: chicago',
   '239176': 'New Balance Run Club New York City',
   '269512': 'Houston Half Marathon',
+  // Indonesia clubs
+  '1765231': 'Strava Indonesia',
+  '814943': 'Indonesia Berlari',
+  '1047124': 'SALOMON INDONESIA',
+  '577509': 'Kalender Lari Indonesia',
+  '703061': 'BUMN RUNNERS',
+  '446995': 'Indorunners Surabaya',
+  '290458': 'RUN ON BALI',
+  '266960': 'LariKu.info',
+  '279382': 'Volt and Fast',
+  '67036': 'Strava Bandung',
+  '144732': 'INDORUNNERS',
+  '502426': 'Playon Jogja',
+  // '783336': 'INDORUNNERS MAKASSAR',  // TODO: join manually — rate limited during automation
   // Other
   '819861': 'Copenhagen Half Marathon',
   '722299': 'Red Bull',
@@ -151,6 +165,21 @@ export function loadConfig(): Config {
         '444924',  // lululemon run club: chicago
         '239176',  // New Balance Run Club New York City
         '269512',  // Houston Half Marathon
+
+        // Indonesia clubs
+        '1765231', // Strava Indonesia
+        '814943',  // Indonesia Berlari
+        '1047124', // SALOMON INDONESIA
+        '577509',  // Kalender Lari Indonesia
+        '703061',  // BUMN RUNNERS
+        '446995',  // Indorunners Surabaya
+        '290458',  // RUN ON BALI
+        '266960',  // LariKu.info
+        '279382',  // Volt and Fast
+        '67036',   // Strava Bandung
+        '144732',  // INDORUNNERS
+        '502426',  // Playon Jogja
+        '783336',  // INDORUNNERS MAKASSAR — TODO: join manually, rate limited during automation
 
         // Other
         '819861',  // Copenhagen Half Marathon
