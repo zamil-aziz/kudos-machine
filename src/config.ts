@@ -94,20 +94,21 @@ export const CLUB_NAMES: Record<string, string> = {
   '81417': 'Brooks Running',
   '512841': 'Brooks Running Europe',
   '231696': 'New Balance Run Club',
-  // TODO: join later — rate limited during automation 2026-02-21
-  // '76016': 'HOKA',                        // 179,702 members
-  // '1035537': 'HOKA Europe',               // 87,685 members
-  // '104818': 'Saucony Run Club',           // 83,276 members
-  // '146083': 'HOKA UTMB Mont-Blanc',       // 57,071 members
-  // '434750': 'Paris Marathon',              // 39,014 members
-  // '179962': 'Asics Running',              // 13,422 members
-  // '1179093': 'Chicago Marathon',           // 13,454 members
-  // '278770': 'Asics Running Club SG',      // 12,785 members
-  // '1302791': 'Saucony Runs',              // 10,621 members
-  // '511492': 'BOLDERBoulder 10k',          // 10,671 members
-  // '1181798': 'New Balance',               // 10,603 members
-  // '727131': 'Asics Running Club Raipur',  // 10,410 members
-  // '488891': 'Saucony London 10K',         // 7,881 members
+  // Joined 2026-02-22 — brand & race clubs
+  '76016': 'HOKA',
+  '1035537': 'HOKA Europe',
+  '104818': 'Saucony Run Club',
+  '146083': 'HOKA UTMB Mont-Blanc',
+  '434750': 'Paris Marathon',
+  '179962': 'Asics Running',
+  '1179093': 'Chicago Marathon',
+  '278770': 'Asics Running Club SG',
+  '1302791': 'Saucony Runs',
+  '511492': 'BOLDERBoulder 10k',
+  '1181798': 'New Balance',
+  '727131': 'Asics Running Club Raipur',
+  '488891': 'Saucony London 10K',
+  // TODO: join later — rate limited during automation 2026-02-22
   // '595907': 'TriathlonMania',             // 6,323 members
   // '236209': 'Asics Running Club',         // 5,605 members
   // '550368': 'Brooks Running PH',          // 4,875 members
@@ -264,20 +265,22 @@ export function loadConfig(): Config {
         '512841',  // Brooks Running Europe
         '231696',  // New Balance Run Club
 
-        // TODO: join later — rate limited during automation 2026-02-21
-        // '76016',    // HOKA — 179,702 members
-        // '1035537',  // HOKA Europe — 87,685 members
-        // '104818',   // Saucony Run Club — 83,276 members
-        // '146083',   // HOKA UTMB Mont-Blanc — 57,071 members
-        // '434750',   // Paris Marathon — 39,014 members
-        // '179962',   // Asics Running — 13,422 members
-        // '1179093',  // Chicago Marathon — 13,454 members
-        // '278770',   // Asics Running Club SG — 12,785 members
-        // '1302791',  // Saucony Runs — 10,621 members
-        // '511492',   // BOLDERBoulder 10k — 10,671 members
-        // '1181798',  // New Balance — 10,603 members
-        // '727131',   // Asics Running Club Raipur — 10,410 members
-        // '488891',   // Saucony London 10K — 7,881 members
+        // Joined 2026-02-22 — brand & race clubs
+        '76016',    // HOKA
+        '1035537',  // HOKA Europe
+        '104818',   // Saucony Run Club
+        '146083',   // HOKA UTMB Mont-Blanc
+        '434750',   // Paris Marathon
+        '179962',   // Asics Running
+        '1179093',  // Chicago Marathon
+        '278770',   // Asics Running Club SG
+        '1302791',  // Saucony Runs
+        '511492',   // BOLDERBoulder 10k
+        '1181798',  // New Balance
+        '727131',   // Asics Running Club Raipur
+        '488891',   // Saucony London 10K
+
+        // TODO: join later — rate limited during automation 2026-02-22
         // '595907',   // TriathlonMania — 6,323 members
         // '236209',   // Asics Running Club — 5,605 members
         // '550368',   // Brooks Running PH — 4,875 members
