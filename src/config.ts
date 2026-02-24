@@ -72,7 +72,6 @@ export const CLUB_NAMES: Record<string, string> = {
   '1215073': 'AMPANG RUN',
   '479648': 'The Running Channel',
   // Joined 2026-02-21 — major world marathons
-  '266219': 'London Marathon',
   '1536714': 'BMW BERLIN-MARATHON',
   '209437': 'TCS New York City Marathon',
   '227671': 'Tokyo Marathon',
@@ -91,34 +90,24 @@ export const CLUB_NAMES: Record<string, string> = {
   '546990': 'Marathon Handbook',
   '1293723': 'RunningFlanClub',
   '1918358': 'Bad at Running Run Club',
-  '81417': 'Brooks Running',
-  '512841': 'Brooks Running Europe',
-  '231696': 'New Balance Run Club',
   // Joined 2026-02-22 — brand & race clubs
-  '76016': 'HOKA',
-  '1035537': 'HOKA Europe',
-  '104818': 'Saucony Run Club',
-  '146083': 'HOKA UTMB Mont-Blanc',
   '434750': 'Paris Marathon',
   '179962': 'Asics Running',
   '1179093': 'Chicago Marathon',
-  '278770': 'Asics Running Club SG',
   '1302791': 'Saucony Runs',
   '511492': 'BOLDERBoulder 10k',
   '1181798': 'New Balance',
   '727131': 'Asics Running Club Raipur',
   '488891': 'Saucony London 10K',
-  // TODO: join later — rate limited during automation 2026-02-22
-  // '595907': 'TriathlonMania',             // 6,323 members
-  // '236209': 'Asics Running Club',         // 5,605 members
-  // '550368': 'Brooks Running PH',          // 4,875 members
-  // '470867': 'Asics Malaysia Running Club', // 4,252 members
-  // '629112': 'HOKA Australia',             // 3,836 members
-  // '281945': 'HOKA LES TEMPLIERS',         // 4,385 members
-  // '1310262': '10km HOKA Paris Centre',    // 3,068 members
-  // '310922': 'Garmin Running Hungary',     // 3,360 members
-  // '684581': 'Garmin Century Challenge',   // 2,976 members
-  // '1160964': 'Clube GARMIN Brasil',       // 2,815 members
+  // Joined 2026-02-24 — previously rate limited
+  '595907': 'TriathlonMania',
+  '236209': 'Asics Running Club',
+  '550368': 'Brooks Running PH',
+  '470867': 'Asics Malaysia Running Club',
+  '629112': 'HOKA Australia',
+  '310922': 'Garmin Running Hungary',
+  '684581': 'Garmin Century Challenge',
+  '1160964': 'Clube GARMIN Brasil',
 };
 
 export function getClubName(clubId: string): string {
@@ -228,7 +217,7 @@ export function loadConfig(): Config {
         '67036',   // Strava Bandung
         '144732',  // INDORUNNERS
         '502426',  // Playon Jogja
-        '783336',  // INDORUNNERS MAKASSAR — TODO: join manually, rate limited during automation
+        // '783336',  // INDORUNNERS MAKASSAR — never joined, removed 2026-02-24
 
         // Other
         '819861',  // Copenhagen Half Marathon
@@ -240,7 +229,6 @@ export function loadConfig(): Config {
         '479648',  // The Running Channel
 
         // Joined 2026-02-21 — major world marathons
-        '266219',  // London Marathon
         '1536714', // BMW BERLIN-MARATHON
         '209437',  // TCS New York City Marathon
         '227671',  // Tokyo Marathon
@@ -261,36 +249,26 @@ export function loadConfig(): Config {
         '546990',  // Marathon Handbook
         '1293723', // RunningFlanClub
         '1918358', // Bad at Running Run Club
-        '81417',   // Brooks Running
-        '512841',  // Brooks Running Europe
-        '231696',  // New Balance Run Club
 
         // Joined 2026-02-22 — brand & race clubs
-        '76016',    // HOKA
-        '1035537',  // HOKA Europe
-        '104818',   // Saucony Run Club
-        '146083',   // HOKA UTMB Mont-Blanc
         '434750',   // Paris Marathon
         '179962',   // Asics Running
         '1179093',  // Chicago Marathon
-        '278770',   // Asics Running Club SG
         '1302791',  // Saucony Runs
         '511492',   // BOLDERBoulder 10k
         '1181798',  // New Balance
         '727131',   // Asics Running Club Raipur
         '488891',   // Saucony London 10K
 
-        // TODO: join later — rate limited during automation 2026-02-22
-        // '595907',   // TriathlonMania — 6,323 members
-        // '236209',   // Asics Running Club — 5,605 members
-        // '550368',   // Brooks Running PH — 4,875 members
-        // '470867',   // Asics Malaysia Running Club — 4,252 members
-        // '629112',   // HOKA Australia — 3,836 members
-        // '281945',   // HOKA LES TEMPLIERS — 4,385 members
-        // '1310262',  // 10km HOKA Paris Centre — 3,068 members
-        // '310922',   // Garmin Running Hungary — 3,360 members
-        // '684581',   // Garmin Century Challenge — 2,976 members
-        // '1160964',  // Clube GARMIN Brasil — 2,815 members
+        // Joined 2026-02-24 — previously rate limited
+        '595907',   // TriathlonMania
+        '236209',   // Asics Running Club
+        '550368',   // Brooks Running PH
+        '470867',   // Asics Malaysia Running Club
+        '629112',   // HOKA Australia
+        '310922',   // Garmin Running Hungary
+        '684581',   // Garmin Century Challenge
+        '1160964',  // Clube GARMIN Brasil
       ];
 
   // Shuffle clubs to distribute kudos evenly across runs
