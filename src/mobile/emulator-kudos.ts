@@ -372,7 +372,9 @@ async function scrollToAndTapClub(clubName: string): Promise<boolean> {
 
   // Scroll down looking for the club
   let scrollAttempts = 0;
-  const maxScrollAttempts = 15;
+  const maxScrollAttempts = 50;  // was 15; ~72 clubs × ~180px/card = ~12,960px; 50 × 600 = 30,000px
+  let previousLastClub: string | undefined;
+  let atBottomCount = 0;
 
   while (scrollAttempts < maxScrollAttempts) {
     const elements = await adb.dumpUi();
@@ -389,9 +391,21 @@ async function scrollToAndTapClub(clubName: string): Promise<boolean> {
     }
 
     // Scroll down to reveal more clubs
-    await adb.scrollDown(400, 200);
+    await adb.scrollDown(600, 200);
     await adb.delay(300);
     scrollAttempts++;
+
+    // Early exit: detect if we've reached the bottom of the list
+    const lastClub = elements
+      .filter(el => el.resourceId === 'com.strava:id/title' && el.text)
+      .at(-1)?.text;
+    if (lastClub === previousLastClub) {
+      atBottomCount++;
+      if (atBottomCount >= 3) break;  // Hit bottom, club not in list
+    } else {
+      atBottomCount = 0;
+      previousLastClub = lastClub;
+    }
   }
 
   console.log(`Could not find club: ${clubName}`);
