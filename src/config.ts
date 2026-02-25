@@ -142,6 +142,15 @@ export function getInternationalClubNames(): string[] {
     .map(([, name]) => name);
 }
 
+/**
+ * Get international club IDs (excluding Malaysian clubs)
+ * Used by mobile automation for deep link navigation
+ */
+export function getInternationalClubIds(): string[] {
+  return Object.keys(CLUB_NAMES)
+    .filter(id => !MALAYSIAN_CLUB_IDS.includes(id));
+}
+
 export function loadConfig(): Config {
   const stravaSession = process.env.STRAVA_SESSION;
   const mobileOnly = process.env.MOBILE_ONLY === 'true';

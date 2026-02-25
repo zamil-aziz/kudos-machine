@@ -1,5 +1,5 @@
 import * as adb from './adb';
-import { getInternationalClubNames } from '../config';
+import { getInternationalClubIds, getClubName } from '../config';
 
 const STRAVA_PACKAGE = 'com.strava';
 const KUDOS_DELAY_MIN_MS = 20;    // Fire-and-forget: faster tapping
@@ -290,126 +290,37 @@ async function scrollFeed(maxScrolls: number = 30): Promise<void> {
 }
 
 /**
- * Navigate to Groups tab in bottom navigation
+ * Navigate to a club by deep linking to its page via club ID
+ * Bypasses the clubs list entirely — Strava's mobile app only shows ~50 clubs
+ * in the "Your Clubs" list, making scroll-based discovery unreliable.
  */
-async function navigateToGroupsTab(): Promise<boolean> {
-  console.log('Navigating to Groups tab...');
-  const elements = await adb.dumpUi();
+async function navigateToClub(clubId: string): Promise<boolean> {
+  const url = `https://www.strava.com/clubs/${clubId}`;
+  await adb.shell(`am start -a android.intent.action.VIEW -d "${url}" com.strava`);
+  await adb.delay(CLUB_LOAD_DELAY_MS);
 
-  // Look for Groups tab by content-desc OR resource-id
-  const groupsTab = elements.find(el =>
-    el.contentDesc === 'Groups' ||
-    el.resourceId.includes('navigation_groups')
+  // Verify we landed on the club page (look for club-specific UI elements)
+  const elements = await adb.dumpUi();
+  const hasClubPage = elements.some(el =>
+    el.text === 'Invite' || el.text === 'Share' || el.text === 'Overview' ||
+    el.text === 'Activities' || el.text === 'Events'
   );
 
-  if (groupsTab && groupsTab.clickable) {
-    await adb.tapElement(groupsTab);
-    await adb.delay(NAV_DELAY_MS);
-    return true;
-  }
-
-  // Fallback: tap at known position scaled to screen size
-  // Groups tab is at ~70% X, ~90% Y from top (varies slightly by device)
-  const groupsTabX = Math.round(screenWidth * 0.70);
-  const groupsTabY = Math.round(screenHeight * 0.90);
-  console.log(`Groups tab not found by ID, trying position-based tap at (${groupsTabX}, ${groupsTabY})...`);
-  await adb.tap(groupsTabX, groupsTabY);
-  await adb.delay(NAV_DELAY_MS);
-  return true;
-}
-
-/**
- * Navigate to Clubs sub-tab within Groups
- * Note: Clubs is selected by default when entering Groups tab
- */
-async function navigateToClubsTab(): Promise<boolean> {
-  console.log('Checking Clubs sub-tab...');
-  const elements = await adb.dumpUi();
-
-  // Check if we can already see club cards - if so, we're already on the Clubs view
-  const hasClubCards = elements.some(el =>
-    el.resourceId === 'com.strava:id/title' &&
-    el.text &&
-    el.text.length > 0 &&
-    !['Clubs', 'Active', 'Challenges', 'Groups'].includes(el.text)
-  );
-
-  if (hasClubCards) {
-    console.log('Already on Clubs view (club cards visible)');
-    return true;
-  }
-
-  // Look for Clubs tab by content-desc
-  const clubsTab = elements.find(el => el.contentDesc === 'Clubs');
-
-  if (clubsTab) {
-    console.log('Clubs tab found, tapping...');
-    await adb.tapElement(clubsTab);
-    await adb.delay(NAV_DELAY_MS);
-    return true;
-  }
-
-  // Clubs tab may already be showing by default
-  console.log('Clubs tab not found explicitly, assuming already on Clubs view');
-  return true;
-}
-
-
-/**
- * Scroll to find a club by name and tap it
- * This handles the case where clubs discovered during scrolling have stale bounds
- */
-async function scrollToAndTapClub(clubName: string): Promise<boolean> {
-  console.log(`Looking for club: ${clubName}...`);
-
-  // Scroll up to top first to ensure consistent starting position
-  const scrollUpStartY = Math.round(screenHeight * 0.27);
-  const scrollUpEndY = Math.round(screenHeight * 0.67);
-  for (let i = 0; i < 5; i++) {
-    await adb.swipe(screenCenterX, scrollUpStartY, screenCenterX, scrollUpEndY, 100);
-  }
-  await adb.delay(300);
-
-  // Scroll down looking for the club
-  let scrollAttempts = 0;
-  const maxScrollAttempts = 50;  // was 15; ~72 clubs × ~180px/card = ~12,960px; 50 × 600 = 30,000px
-  let previousLastClub: string | undefined;
-  let atBottomCount = 0;
-
-  while (scrollAttempts < maxScrollAttempts) {
-    const elements = await adb.dumpUi();
-    const clubEl = elements.find(el =>
-      el.resourceId === 'com.strava:id/title' &&
-      el.text === clubName
+  if (!hasClubPage) {
+    // Wait a bit longer and retry — might be loading
+    await adb.delay(1000);
+    const retry = await adb.dumpUi();
+    const hasClubPageRetry = retry.some(el =>
+      el.text === 'Invite' || el.text === 'Share' || el.text === 'Overview' ||
+      el.text === 'Activities' || el.text === 'Events'
     );
-
-    if (clubEl) {
-      console.log(`Found club "${clubName}", tapping...`);
-      await adb.tapElement(clubEl);
-      await adb.delay(CLUB_LOAD_DELAY_MS);
-      return true;
-    }
-
-    // Scroll down to reveal more clubs
-    await adb.scrollDown(600, 200);
-    await adb.delay(300);
-    scrollAttempts++;
-
-    // Early exit: detect if we've reached the bottom of the list
-    const lastClub = elements
-      .filter(el => el.resourceId === 'com.strava:id/title' && el.text)
-      .at(-1)?.text;
-    if (lastClub === previousLastClub) {
-      atBottomCount++;
-      if (atBottomCount >= 3) break;  // Hit bottom, club not in list
-    } else {
-      atBottomCount = 0;
-      previousLastClub = lastClub;
+    if (!hasClubPageRetry) {
+      console.log(`WARNING: Deep link to club ${clubId} may not have loaded`);
+      return false;
     }
   }
 
-  console.log(`Could not find club: ${clubName}`);
-  return false;
+  return true;
 }
 
 /**
@@ -479,42 +390,6 @@ async function navigateToClubFeed(): Promise<boolean> {
 
   console.log('WARNING: Could not find Activities tab');
   return false;
-}
-
-/**
- * Press back button to return to clubs list
- * Need to press twice: once to exit current view, once to exit club
- * Verifies we actually reached the clubs list (has Groups bottom nav)
- */
-async function goBack(): Promise<void> {
-  console.log('Going back to clubs list...');
-
-  // First back: exits current view (activity detail, etc) to club page
-  await adb.shell('input keyevent KEYCODE_BACK');
-  await adb.delay(500);
-
-  // Second back: exits club page to clubs list
-  await adb.shell('input keyevent KEYCODE_BACK');
-  await adb.delay(NAV_DELAY_MS);
-
-  // Verify we reached a main screen with bottom navigation
-  // If not, press back again (we might have landed on club detail page)
-  const elements = await adb.dumpUi();
-  const hasGroupsNav = elements.some(el => el.contentDesc === 'Groups');
-
-  if (!hasGroupsNav) {
-    console.log('Not on main screen yet, pressing back again...');
-    await adb.shell('input keyevent KEYCODE_BACK');
-    await adb.delay(NAV_DELAY_MS);
-
-    // Check one more time
-    const elementsAfter = await adb.dumpUi();
-    const hasGroupsNavAfter = elementsAfter.some(el => el.contentDesc === 'Groups');
-
-    if (!hasGroupsNavAfter) {
-      console.log('Still not on main screen, will rely on recovery logic...');
-    }
-  }
 }
 
 /**
@@ -770,49 +645,38 @@ export async function giveKudosMobile(
     consecutiveTapErrors: 0,
   };
 
-  // Navigate to Groups tab
-  const groupsOk = await navigateToGroupsTab();
-  if (!groupsOk) {
-    console.log('Failed to navigate to Groups tab');
-    result.errors = 1;
-    return result;
-  }
-
-  // Navigate to Clubs sub-tab
-  const clubsOk = await navigateToClubsTab();
-  if (!clubsOk) {
-    console.log('Could not find Clubs tab, will try to process current view');
-  }
-
-  // Get international club names from config (no scrolling needed)
-  let clubNames = getInternationalClubNames();
+  // Get international club IDs from config
+  // Deep link navigation bypasses the clubs list entirely — Strava's mobile app
+  // only shows ~50 clubs in "Your Clubs", making scroll-based discovery unreliable
+  let clubIds = getInternationalClubIds();
   // Shuffle clubs to distribute kudos evenly across runs
-  clubNames = clubNames.sort(() => Math.random() - 0.5);
-  console.log(`Processing ${clubNames.length} international clubs (shuffled)`);
+  clubIds = clubIds.sort(() => Math.random() - 0.5);
+  console.log(`Processing ${clubIds.length} international clubs via deep link (shuffled)`);
 
-  if (clubNames.length === 0) {
+  if (clubIds.length === 0) {
     // Fallback: just process whatever is on screen
     console.log('No clubs found, processing current feed...');
     await scrollFeed();
     state = await giveKudosOnCurrentFeed(state, maxKudos, dryRun);
   } else {
-    // Process each club
+    // Process each club via deep link
     const processedClubs = new Set<string>();
 
-    for (let clubIndex = 0; clubIndex < clubNames.length && !state.rateLimited; clubIndex++) {
-      const clubName = clubNames[clubIndex];
+    for (let clubIndex = 0; clubIndex < clubIds.length && !state.rateLimited; clubIndex++) {
+      const clubId = clubIds[clubIndex];
+      const clubName = getClubName(clubId);
 
-      if (processedClubs.has(clubName)) {
+      if (processedClubs.has(clubId)) {
         continue;
       }
-      processedClubs.add(clubName);
+      processedClubs.add(clubId);
 
-      console.log(`\n--- Club ${clubIndex + 1}/${clubNames.length}: ${clubName} ---`);
+      console.log(`\n--- Club ${clubIndex + 1}/${clubIds.length}: ${clubName} (${clubId}) ---`);
 
-      // Scroll to find and tap the club
-      const entered = await scrollToAndTapClub(clubName);
+      // Navigate to club via deep link
+      const entered = await navigateToClub(clubId);
       if (!entered) {
-        console.log(`Failed to enter club: ${clubName}`);
+        console.log(`Failed to open club: ${clubName}`);
         continue;
       }
 
@@ -837,7 +701,7 @@ export async function giveKudosMobile(
           console.error('Failed to restart emulator');
           break;
         }
-        // Re-setup: disable animations, launch Strava, navigate to clubs
+        // Re-setup: disable animations, launch Strava
         initScreenDimensions();  // Re-initialize after restart
         await adb.disableAnimations();
         const relaunched = await launchStrava();
@@ -846,10 +710,8 @@ export async function giveKudosMobile(
           break;
         }
         await adb.delay(APP_LAUNCH_WAIT_MS);
-        await navigateToGroupsTab();
-        await navigateToClubsTab();
-        clubNames = getInternationalClubNames();
-        clubNames = clubNames.sort(() => Math.random() - 0.5);
+        clubIds = getInternationalClubIds();
+        clubIds = clubIds.sort(() => Math.random() - 0.5);
         state.processedPositions.clear();
         state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session
         state.consecutiveTapErrors = 0;   // Reset ADB error tracking for new session
@@ -860,27 +722,11 @@ export async function giveKudosMobile(
         continue;
       }
 
-      // Go back to clubs list
-      await goBack();
-      await adb.delay(NAV_DELAY_MS);
-
       // Clear processed positions when switching clubs (positions are screen-relative)
       // Different clubs have different activities at the same screen positions
       state.processedPositions.clear();
       state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new club
       state.consecutiveTapErrors = 0;   // Reset ADB error tracking for new club
-
-      // Club list comes from config, no need to re-fetch
-      // Just verify we're on the clubs list screen, recover if needed
-      const elements = await adb.dumpUi();
-      const hasGroupsNav = elements.some(el => el.contentDesc === 'Groups');
-
-      if (!hasGroupsNav) {
-        console.log('Not on clubs list, attempting recovery...');
-        await escapeToSafeView();
-        await navigateToGroupsTab();
-        await navigateToClubsTab();
-      }
     }
   }
 
