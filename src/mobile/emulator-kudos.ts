@@ -584,7 +584,8 @@ async function giveKudosOnCurrentFeed(
  */
 export async function giveKudosMobile(
   maxKudos: number = Infinity,
-  dryRun: boolean = false
+  dryRun: boolean = false,
+  excludeClubIds: string[] = []
 ): Promise<MobileKudosResult> {
   const result: MobileKudosResult = { given: 0, errors: 0, rateLimited: false };
 
@@ -648,10 +649,11 @@ export async function giveKudosMobile(
   // Get international club IDs from config
   // Deep link navigation bypasses the clubs list entirely — Strava's mobile app
   // only shows ~50 clubs in "Your Clubs", making scroll-based discovery unreliable
-  let clubIds = getInternationalClubIds();
+  let clubIds = getInternationalClubIds()
+    .filter(id => !excludeClubIds.includes(id));
   // Shuffle clubs to distribute kudos evenly across runs
   clubIds = clubIds.sort(() => Math.random() - 0.5);
-  console.log(`Processing ${clubIds.length} international clubs via deep link (shuffled)`);
+  console.log(`Processing ${clubIds.length} international clubs via deep link (shuffled${excludeClubIds.length > 0 ? `, ${excludeClubIds.length} excluded` : ''})`);
 
   if (clubIds.length === 0) {
     // Fallback: just process whatever is on screen

@@ -74,7 +74,7 @@ async function main(): Promise<void> {
   let session;
 
   try {
-    let browserResult = { given: 0, errors: 0, rateLimited: false };
+    let browserResult = { given: 0, errors: 0, rateLimited: false, processedClubIds: [] as string[] };
     let mobileResult = { given: 0, errors: 0, rateLimited: false };
 
     // Run browser automation (unless mobile-only mode)
@@ -143,7 +143,8 @@ async function main(): Promise<void> {
           ? Infinity
           : config.maxKudosPerRun - browserResult.given;
 
-        mobileResult = await giveKudosMobile(remainingKudos, config.dryRun);
+        const excludeClubs = config.mobileOnly ? [] : browserResult.processedClubIds || [];
+        mobileResult = await giveKudosMobile(remainingKudos, config.dryRun, excludeClubs);
 
         // Only kill emulator if we're using one, not physical device
         if (deviceType === 'emulator') {

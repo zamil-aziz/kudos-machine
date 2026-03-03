@@ -64,6 +64,7 @@ export interface KudosResult {
   errors: number;
   rateLimited: boolean;
   hitClubLimit: boolean;
+  processedClubIds: string[];
 }
 
 function getFeedUrl(clubId?: string): string {
@@ -119,7 +120,7 @@ export async function giveKudos(
   maxKudos: number,
   dryRun: boolean
 ): Promise<KudosResult> {
-  const result: KudosResult = { given: 0, errors: 0, rateLimited: false, hitClubLimit: false };
+  const result: KudosResult = { given: 0, errors: 0, rateLimited: false, hitClubLimit: false, processedClubIds: [] };
 
   const feedUrl = getFeedUrl(clubId);
   const clubName = clubId ? getClubName(clubId) : 'main feed';
@@ -257,13 +258,14 @@ export async function giveKudosToAllFeeds(
   maxKudos: number,
   dryRun: boolean
 ): Promise<KudosResult> {
-  const totalResult: KudosResult = { given: 0, errors: 0, rateLimited: false, hitClubLimit: false };
+  const totalResult: KudosResult = { given: 0, errors: 0, rateLimited: false, hitClubLimit: false, processedClubIds: [] };
   let remainingKudos = maxKudos;
 
   // If no club IDs specified, just process the main feed
   const feedsToProcess = clubIds.length > 0 ? clubIds : [undefined];
 
   for (const clubId of feedsToProcess) {
+    if (clubId) totalResult.processedClubIds.push(clubId);
     if (remainingKudos <= 0) {
       console.log('Max kudos reached, stopping');
       break;

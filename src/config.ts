@@ -280,8 +280,13 @@ export function loadConfig(): Config {
         '1160964',  // Clube GARMIN Brasil
       ];
 
-  // Shuffle clubs to distribute kudos evenly across runs
-  clubIds = clubIds.sort(() => Math.random() - 0.5);
+  // Malaysian clubs first (only reachable by browser), then international
+  // Both groups shuffled internally for even distribution
+  const malaysian = clubIds.filter(id => MALAYSIAN_CLUB_IDS.includes(id));
+  const international = clubIds.filter(id => !MALAYSIAN_CLUB_IDS.includes(id));
+  malaysian.sort(() => Math.random() - 0.5);
+  international.sort(() => Math.random() - 0.5);
+  clubIds = [...malaysian, ...international];
 
   let maxKudosPerRun = Infinity; // No limit - script stops when rate limited
   if (process.env.MAX_KUDOS_PER_RUN) {
