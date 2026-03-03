@@ -1,13 +1,13 @@
 import { Page } from 'playwright';
 import { getClubName } from './config';
 
-const KUDOS_DELAY_MIN_MS = 2000; // 2 seconds min - very conservative for CI
-const KUDOS_DELAY_MAX_MS = 4000; // 4 seconds max
+const KUDOS_DELAY_MIN_MS = 1500; // 1.5 seconds min
+const KUDOS_DELAY_MAX_MS = 3000; // 3 seconds max
 const MAX_KUDOS_PER_CLUB = 30; // Auto-switch clubs after 30 kudos for better distribution
-const CLUB_SWITCH_DELAY_MIN_MS = 240000; // 4 minutes between clubs
-const CLUB_SWITCH_DELAY_MAX_MS = 420000; // 7 minutes between clubs
+const CLUB_SWITCH_DELAY_MIN_MS = 180000; // 3 minutes between clubs
+const CLUB_SWITCH_DELAY_MAX_MS = 300000; // 5 minutes between clubs
 const SCROLL_DELAY_MS = 200;
-const PAGE_LOAD_DELAY_MS = 1000;
+const PAGE_LOAD_DELAY_MS = 500;
 
 function randomDelay(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -111,7 +111,7 @@ async function scrollToLoadContent(page: Page): Promise<void> {
 
   // Scroll back to top
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(200);
 }
 
 export async function giveKudos(
