@@ -712,7 +712,8 @@ export async function giveKudosMobile(
           break;
         }
         await adb.delay(APP_LAUNCH_WAIT_MS);
-        clubIds = getInternationalClubIds();
+        clubIds = getInternationalClubIds()
+            .filter(id => !excludeClubIds.includes(id));
         clubIds = clubIds.sort(() => Math.random() - 0.5);
         state.processedPositions.clear();
         state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session

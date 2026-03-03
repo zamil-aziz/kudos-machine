@@ -265,11 +265,11 @@ export async function giveKudosToAllFeeds(
   const feedsToProcess = clubIds.length > 0 ? clubIds : [undefined];
 
   for (const clubId of feedsToProcess) {
-    if (clubId) totalResult.processedClubIds.push(clubId);
     if (remainingKudos <= 0) {
       console.log('Max kudos reached, stopping');
       break;
     }
+    if (clubId) totalResult.processedClubIds.push(clubId);
 
     const result = await giveKudos(page, clubId, remainingKudos, dryRun);
 
