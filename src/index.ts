@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   console.log(`  Clubs: ${config.clubIds.length} (shuffled)`);
   console.log(`  Max kudos per run: ${config.maxKudosPerRun === Infinity ? 'unlimited' : config.maxKudosPerRun}`);
   console.log(`  Dry run: ${config.dryRun}`);
-  console.log(`  Mode: ${config.mobileOnly ? 'mobile only' : config.skipMobile ? 'browser only' : 'browser + mobile fallback'}`);
+  console.log(`  Mode: ${config.mobileOnly ? 'mobile only' : config.skipMobile ? 'browser only' : 'browser + mobile'}`);
 
   if (config.dryRun) {
     console.log('\n⚠️  DRY RUN MODE - No kudos will actually be given');
@@ -101,9 +101,8 @@ async function main(): Promise<void> {
       session = undefined;
     }
 
-    // Mobile automation: either in mobile-only mode or as fallback after rate limit
-    const shouldRunMobile = config.mobileOnly ||
-      (browserResult.rateLimited && !config.skipMobile);
+    // Mobile automation: always run (it has its own separate clubs)
+    const shouldRunMobile = config.mobileOnly || !config.skipMobile;
 
     if (shouldRunMobile) {
       let mobileReady = isMobileAvailable();
@@ -133,9 +132,9 @@ async function main(): Promise<void> {
           }
         } else {
           if (deviceType === 'physical') {
-            console.log('\n🔄 Browser rate limited, switching to physical device...');
+            console.log('\n📱 Running mobile clubs (physical device)...');
           } else {
-            console.log('\n🔄 Browser rate limited, switching to mobile emulator...');
+            console.log('\n📱 Running mobile clubs (emulator)...');
           }
         }
 
@@ -143,8 +142,7 @@ async function main(): Promise<void> {
           ? Infinity
           : config.maxKudosPerRun - browserResult.given;
 
-        const excludeClubs = config.mobileOnly ? [] : browserResult.processedClubIds || [];
-        mobileResult = await giveKudosMobile(remainingKudos, config.dryRun, excludeClubs);
+        mobileResult = await giveKudosMobile(remainingKudos, config.dryRun);
 
         // Only kill emulator if we're using one, not physical device
         if (deviceType === 'emulator') {

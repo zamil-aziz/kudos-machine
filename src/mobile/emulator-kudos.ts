@@ -1,5 +1,5 @@
 import * as adb from './adb';
-import { getInternationalClubIds, getClubName } from '../config';
+import { MOBILE_CLUB_IDS, getClubName } from '../config';
 
 const STRAVA_PACKAGE = 'com.strava';
 const KUDOS_DELAY_MIN_MS = 20;    // Fire-and-forget: faster tapping
@@ -585,7 +585,6 @@ async function giveKudosOnCurrentFeed(
 export async function giveKudosMobile(
   maxKudos: number = Infinity,
   dryRun: boolean = false,
-  excludeClubIds: string[] = []
 ): Promise<MobileKudosResult> {
   const result: MobileKudosResult = { given: 0, errors: 0, rateLimited: false };
 
@@ -649,11 +648,10 @@ export async function giveKudosMobile(
   // Get international club IDs from config
   // Deep link navigation bypasses the clubs list entirely — Strava's mobile app
   // only shows ~50 clubs in "Your Clubs", making scroll-based discovery unreliable
-  let clubIds = getInternationalClubIds()
-    .filter(id => !excludeClubIds.includes(id));
+  let clubIds = [...MOBILE_CLUB_IDS];
   // Shuffle clubs to distribute kudos evenly across runs
-  clubIds = clubIds.sort(() => Math.random() - 0.5);
-  console.log(`Processing ${clubIds.length} international clubs via deep link (shuffled${excludeClubIds.length > 0 ? `, ${excludeClubIds.length} excluded` : ''})`);
+  clubIds.sort(() => Math.random() - 0.5);
+  console.log(`Processing ${clubIds.length} mobile clubs via deep link (shuffled)`);
 
   if (clubIds.length === 0) {
     // Fallback: just process whatever is on screen
@@ -712,9 +710,8 @@ export async function giveKudosMobile(
           break;
         }
         await adb.delay(APP_LAUNCH_WAIT_MS);
-        clubIds = getInternationalClubIds()
-            .filter(id => !excludeClubIds.includes(id));
-        clubIds = clubIds.sort(() => Math.random() - 0.5);
+        clubIds = [...MOBILE_CLUB_IDS];
+        clubIds.sort(() => Math.random() - 0.5);
         state.processedPositions.clear();
         state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session
         state.consecutiveTapErrors = 0;   // Reset ADB error tracking for new session
