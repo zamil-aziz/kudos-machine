@@ -27,10 +27,10 @@ To see which clubs the account is already in:
 All club configuration is in `src/config.ts`:
 
 - `CLUB_NAMES` — maps club IDs to display names (used for logging)
-- `clubIds` array inside `loadConfig()` — the default list of clubs to process
-- `MALAYSIAN_CLUB_IDS` — subset excluded from mobile automation
+- `ALL_CLUB_IDS` — unified pool of all clubs, used by both web and mobile
+- `clubIds` array inside `loadConfig()` — defaults to `ALL_CLUB_IDS`, shuffled
 
-When adding a new club, update both `CLUB_NAMES` and the `clubIds` array.
+When adding a new club, update both `CLUB_NAMES` and `ALL_CLUB_IDS`.
 
 ## URL Formats
 

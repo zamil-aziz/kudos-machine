@@ -101,7 +101,7 @@ async function main(): Promise<void> {
       session = undefined;
     }
 
-    // Mobile automation: always run (it has its own separate clubs)
+    // Mobile automation: runs the same unified club pool via device/emulator
     const shouldRunMobile = config.mobileOnly || !config.skipMobile;
 
     if (shouldRunMobile) {

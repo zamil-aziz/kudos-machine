@@ -1,5 +1,5 @@
 import * as adb from './adb';
-import { MOBILE_CLUB_IDS, getClubName } from '../config';
+import { ALL_CLUB_IDS, getClubName } from '../config';
 
 const STRAVA_PACKAGE = 'com.strava';
 const KUDOS_DELAY_MIN_MS = 20;    // Fire-and-forget: faster tapping
@@ -645,10 +645,10 @@ export async function giveKudosMobile(
     consecutiveTapErrors: 0,
   };
 
-  // Get international club IDs from config
+  // Get all club IDs from config
   // Deep link navigation bypasses the clubs list entirely — Strava's mobile app
   // only shows ~50 clubs in "Your Clubs", making scroll-based discovery unreliable
-  let clubIds = [...MOBILE_CLUB_IDS];
+  let clubIds = [...ALL_CLUB_IDS];
   // Shuffle clubs to distribute kudos evenly across runs
   clubIds.sort(() => Math.random() - 0.5);
   console.log(`Processing ${clubIds.length} mobile clubs via deep link (shuffled)`);
@@ -710,7 +710,7 @@ export async function giveKudosMobile(
           break;
         }
         await adb.delay(APP_LAUNCH_WAIT_MS);
-        clubIds = [...MOBILE_CLUB_IDS];
+        clubIds = [...ALL_CLUB_IDS];
         clubIds.sort(() => Math.random() - 0.5);
         state.processedPositions.clear();
         state.consecutiveFailedTaps = 0;  // Reset rate limit detection for new session
