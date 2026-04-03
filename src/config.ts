@@ -113,6 +113,14 @@ export function getClubName(clubId: string): string {
   return CLUB_NAMES[clubId] || clubId;
 }
 
+export function shuffle<T>(array: T[]): T[] {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 // All clubs: Malaysian, adidas, brand, UK races, US, Indonesia,
 // world marathons, European, brand & race, previously rate-limited
 export const ALL_CLUB_IDS = [
@@ -235,7 +243,7 @@ export function loadConfig(): Config {
     : [...ALL_CLUB_IDS];
 
   // Shuffle for even distribution across runs
-  clubIds.sort(() => Math.random() - 0.5);
+  shuffle(clubIds);
 
   let maxKudosPerRun = Infinity; // No limit - script stops when rate limited
   if (process.env.MAX_KUDOS_PER_RUN) {
