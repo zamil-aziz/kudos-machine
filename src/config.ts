@@ -70,6 +70,7 @@ export const CLUB_NAMES: Record<string, string> = {
   '1128193': 'Official Team COROS Malaysia',
   '1215073': 'AMPANG RUN',
   '487293': 'Garmin Running Malaysia',
+  '1890255': 'Rise & Run Community',
   // World marathons
   '1536714': 'BMW BERLIN-MARATHON',
   '209437': 'TCS New York City Marathon',
@@ -130,6 +131,7 @@ export const ALL_CLUB_IDS = [
   '1128193', // Official Team COROS Malaysia
   '1215073', // AMPANG RUN
   '487293',  // Garmin Running Malaysia
+  '1890255', // Rise & Run Community
   // adidas clubs
   '206162',  // adidas Running UK
   '529312',  // adidas Manchester Marathon
